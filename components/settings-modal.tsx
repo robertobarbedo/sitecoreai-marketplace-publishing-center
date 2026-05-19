@@ -24,11 +24,14 @@ import {
 import {
   loadSettings,
   saveSettings,
+  loadGeneralSettings,
+  saveGeneralSettings,
   loadAdditionalStatusChecks,
   saveAdditionalStatusChecks,
   loadCustomActions,
   saveCustomActions,
   type DisplaySettings,
+  type GeneralSettings,
   type AdditionalStatusChecks,
   type StatusCheckConfig,
   type CustomActions,
@@ -38,7 +41,7 @@ import {
 export interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSettingsSaved: (settings: DisplaySettings, additionalChecks: AdditionalStatusChecks, customActions: CustomActions) => void;
+  onSettingsSaved: (settings: DisplaySettings, generalSettings: GeneralSettings, additionalChecks: AdditionalStatusChecks, customActions: CustomActions) => void;
   client: ClientSDK;
   appContext: ApplicationContext;
   language: string;
@@ -56,6 +59,9 @@ export function SettingsModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // General Settings state
+  const [timestampMetaName, setTimestampMetaName] = useState("Last-Modified");
 
   // Display Settings state
   const [showPublishingStatus, setShowPublishingStatus] = useState(true);
@@ -135,6 +141,12 @@ export function SettingsModal({
             throw new Error("No context ID available");
           }
 
+          const generalSettings = await loadGeneralSettings(
+            client,
+            contextId,
+            language as "en-CA" | "fr-CA"
+          );
+
           const displaySettings = await loadSettings(
             client,
             contextId,
@@ -152,6 +164,9 @@ export function SettingsModal({
             contextId,
             language as "en-CA" | "fr-CA"
           );
+
+          // Update general settings state
+          setTimestampMetaName(generalSettings.timestampMetaName || "Last-Modified");
 
           // Update display settings state
           setShowPublishingStatus(displaySettings.showPublishingStatus);
@@ -190,6 +205,10 @@ export function SettingsModal({
         throw new Error("No context ID available");
       }
 
+      const generalSettings: GeneralSettings = {
+        timestampMetaName: timestampMetaName.trim() || "Last-Modified",
+      };
+
       const displaySettings: DisplaySettings = {
         showPublishingStatus,
         showPublishingActions,
@@ -207,6 +226,13 @@ export function SettingsModal({
       const actionsToSave: CustomActions = {
         actions: customActions,
       };
+
+      await saveGeneralSettings(
+        client,
+        contextId,
+        generalSettings,
+        language as "en-CA" | "fr-CA"
+      );
 
       await saveSettings(
         client,
@@ -232,7 +258,7 @@ export function SettingsModal({
       setSuccessMessage("Settings saved successfully!");
       
       // Notify parent component
-      onSettingsSaved(displaySettings, additionalChecks, actionsToSave);
+      onSettingsSaved(displaySettings, generalSettings, additionalChecks, actionsToSave);
 
       // Close modal after a short delay
       setTimeout(() => {
@@ -263,7 +289,8 @@ export function SettingsModal({
             <Tabs defaultValue="display" className="w-full">
               <TabsList variant="line" className="w-full border-b border-border-color">
                 <TabsTrigger value="display" variant="line">Display</TabsTrigger>
-                <TabsTrigger value="statusChecks" variant="line">Add Status Checks</TabsTrigger>
+                <TabsTrigger value="general" variant="line">General</TabsTrigger>
+                <TabsTrigger value="statusChecks" variant="line">Add Checks</TabsTrigger>
                 <TabsTrigger value="actions" variant="line">Add Actions</TabsTrigger>
               </TabsList>
 
@@ -377,6 +404,32 @@ export function SettingsModal({
                     >
                       Show Publishing Context
                     </label>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* General Settings Tab */}
+              <TabsContent value="general" className="overflow-y-auto">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="timestampMetaName"
+                      className="text-sm font-medium leading-none"
+                    >
+                      Timestamp Meta Element Name
+                    </label>
+                    <p className="text-xs text-gray-600">
+                      The name of the HTML meta element that contains the page's last updated timestamp.
+                      Defaults to "Last-Modified" if left empty.
+                    </p>
+                    <Input
+                      id="timestampMetaName"
+                      type="text"
+                      placeholder="Last-Modified"
+                      value={timestampMetaName}
+                      onChange={(e) => setTimestampMetaName(e.target.value)}
+                      className="text-sm"
+                    />
                   </div>
                 </div>
               </TabsContent>

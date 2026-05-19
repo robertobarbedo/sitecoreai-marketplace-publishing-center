@@ -14,7 +14,7 @@ import { SettingsModal } from "@/components/settings-modal";
 import { Icon } from "@/lib/icon";
 import { mdiCog } from "@mdi/js";
 import type { DataSource } from "@/src/types/datasource";
-import { loadSettings, loadAdditionalStatusChecks, loadCustomActions, type DisplaySettings, type AdditionalStatusChecks, type CustomActions } from "@/src/utils/sitecore-settings";
+import { loadSettings, loadAdditionalStatusChecks, loadCustomActions, loadGeneralSettings, type DisplaySettings, type AdditionalStatusChecks, type CustomActions, type GeneralSettings } from "@/src/utils/sitecore-settings";
 
 function PagesContextPanel() {
   const { client, error, isInitialized } = useMarketplaceClient();
@@ -37,6 +37,9 @@ function PagesContextPanel() {
   });
   const [customActions, setCustomActions] = useState<CustomActions>({
     actions: [],
+  });
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
+    timestampMetaName: "Last-Modified",
   });
   const [isLoadingCustomActions, setIsLoadingCustomActions] = useState(false);
 
@@ -80,6 +83,12 @@ function PagesContextPanel() {
 
           setIsLoadingCustomActions(true);
 
+          const loadedGeneralSettings = await loadGeneralSettings(
+            client,
+            contextId,
+            pageLanguage as "en-CA" | "fr-CA"
+          );
+
           const loadedSettings = await loadSettings(
             client,
             contextId,
@@ -98,6 +107,7 @@ function PagesContextPanel() {
             pageLanguage as "en-CA" | "fr-CA"
           );
 
+          setGeneralSettings(loadedGeneralSettings);
           setDisplaySettings(loadedSettings);
           setAdditionalChecks(loadedAdditionalChecks);
           setCustomActions(loadedCustomActions);
@@ -112,8 +122,9 @@ function PagesContextPanel() {
     }
   }, [client, appContext, pagesContext]);
 
-  const handleSettingsSaved = (newSettings: DisplaySettings, newAdditionalChecks: AdditionalStatusChecks, newCustomActions: CustomActions) => {
+  const handleSettingsSaved = (newSettings: DisplaySettings, newGeneralSettings: GeneralSettings, newAdditionalChecks: AdditionalStatusChecks, newCustomActions: CustomActions) => {
     setDisplaySettings(newSettings);
+    setGeneralSettings(newGeneralSettings);
     setAdditionalChecks(newAdditionalChecks);
     setIsLoadingCustomActions(true);
     setCustomActions(newCustomActions);
@@ -168,6 +179,7 @@ function PagesContextPanel() {
           pagePath={pagePath}
           language={pageLanguage}
           additionalChecks={additionalChecks}
+          generalSettings={generalSettings}
         />
       )}
       {displaySettings.showPublishingActions && (

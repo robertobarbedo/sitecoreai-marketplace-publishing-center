@@ -16,8 +16,13 @@ const MODULES_PARENT_ID = "{08477468-D438-43D4-9D6A-6D84A611971C}";
 const MODULES_PATH = "/sitecore/system/Modules";
 const PUBLISHING_CENTER_PATH = "/sitecore/system/Modules/PublishingCenter";
 const DISPLAY_SETTINGS_PATH = "/sitecore/system/Modules/PublishingCenter/DisplaySettings";
+const GENERAL_SETTINGS_PATH = "/sitecore/system/Modules/PublishingCenter/GeneralSettings";
 const ADDITIONAL_STATUS_CHECK_PATH = "/sitecore/system/Modules/PublishingCenter/AdditionalStatusCheck";
 const CUSTOM_ACTIONS_PATH = "/sitecore/system/Modules/PublishingCenter/CustomActions";
+
+export interface GeneralSettings {
+  timestampMetaName: string;
+}
 
 export interface DisplaySettings {
   showPublishingStatus: boolean;
@@ -49,6 +54,10 @@ export interface CustomActions {
   actions: ActionConfig[];
 }
 
+const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
+  timestampMetaName: "Last-Modified",
+};
+
 const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   showPublishingStatus: true,
   showPublishingActions: true,
@@ -66,6 +75,40 @@ const DEFAULT_ADDITIONAL_STATUS_CHECKS: AdditionalStatusChecks = {
 const DEFAULT_CUSTOM_ACTIONS: CustomActions = {
   actions: [],
 };
+
+export async function loadGeneralSettings(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  language: Language
+): Promise<GeneralSettings> {
+  try {
+    const generalSettingsItem = await queryItemByPath(
+      client,
+      sitecoreContextId,
+      GENERAL_SETTINGS_PATH,
+      language
+    );
+
+    let generalSettings = DEFAULT_GENERAL_SETTINGS;
+    if (generalSettingsItem?.fields?.nodes) {
+      const valueField = generalSettingsItem.fields.nodes.find(
+        (f) => f.name === "Value"
+      );
+      if (valueField?.value) {
+        try {
+          generalSettings = JSON.parse(valueField.value);
+        } catch {
+          generalSettings = DEFAULT_GENERAL_SETTINGS;
+        }
+      }
+    }
+
+    return generalSettings;
+  } catch (error) {
+    console.error("Error loading general settings:", error);
+    return DEFAULT_GENERAL_SETTINGS;
+  }
+}
 
 export async function loadSettings(
   client: ClientSDK,
@@ -135,6 +178,79 @@ export async function loadAdditionalStatusChecks(
   } catch (error) {
     console.error("Error loading additional status checks:", error);
     return DEFAULT_ADDITIONAL_STATUS_CHECKS;
+  }
+}
+
+export async function saveGeneralSettings(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  generalSettings: GeneralSettings,
+  language: Language
+): Promise<void> {
+  try {
+    // 1. Ensure PublishingCenter folder exists
+    let publishingCenterItem = await queryItemByPath(
+      client,
+      sitecoreContextId,
+      PUBLISHING_CENTER_PATH,
+      language
+    );
+
+    if (!publishingCenterItem) {
+      // Create PublishingCenter folder
+      publishingCenterItem = await createItem(
+        client,
+        sitecoreContextId,
+        MODULES_PARENT_ID,
+        PUBLISHING_CENTER_TEMPLATE_ID,
+        "PublishingCenter",
+        language
+      );
+
+      if (!publishingCenterItem) {
+        throw new Error("Failed to create PublishingCenter folder");
+      }
+    }
+
+    const publishingCenterId = publishingCenterItem.itemId;
+
+    // 2. Ensure GeneralSettings item exists
+    let generalSettingsItem = await queryItemByPath(
+      client,
+      sitecoreContextId,
+      GENERAL_SETTINGS_PATH,
+      language
+    );
+
+    if (!generalSettingsItem) {
+      // Create GeneralSettings item
+      generalSettingsItem = await createItem(
+        client,
+        sitecoreContextId,
+        publishingCenterId,
+        SETTINGS_ITEM_TEMPLATE_ID,
+        "GeneralSettings",
+        language
+      );
+
+      if (!generalSettingsItem) {
+        throw new Error("Failed to create GeneralSettings item");
+      }
+    }
+
+    // 3. Update GeneralSettings Value field with JSON
+    const generalSettingsJson = JSON.stringify(generalSettings);
+    await updateItemFieldByPath(
+      client,
+      sitecoreContextId,
+      GENERAL_SETTINGS_PATH,
+      "Value",
+      generalSettingsJson,
+      language
+    );
+  } catch (error) {
+    console.error("Error saving general settings:", error);
+    throw error;
   }
 }
 

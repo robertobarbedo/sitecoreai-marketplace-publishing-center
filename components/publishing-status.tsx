@@ -21,7 +21,7 @@ import {
 import {
   queryDeliveryItemUpdated,
 } from "@/src/utils/sitecore-graphql";
-import type { AdditionalStatusChecks } from "@/src/utils/sitecore-settings";
+import type { AdditionalStatusChecks, GeneralSettings } from "@/src/utils/sitecore-settings";
 
 type StatusValue =
   | "loading"
@@ -45,6 +45,7 @@ export interface PublishingStatusProps {
   pagePath: string;
   language: string;
   additionalChecks?: AdditionalStatusChecks;
+  generalSettings?: GeneralSettings;
 }
 
 const STATUS_DISPLAY: Record<
@@ -169,6 +170,7 @@ export function PublishingStatus({
   pagePath,
   language,
   additionalChecks,
+  generalSettings,
 }: PublishingStatusProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -295,8 +297,9 @@ export function PublishingStatus({
       setWebsiteStatus({ status: "missing" });
     } else {
       try {
+        const metaName = generalSettings?.timestampMetaName || "Last-Modified";
         const res = await fetch(
-          `/api/fetch-page?url=${encodeURIComponent(liveUrl)}`,
+          `/api/fetch-page?url=${encodeURIComponent(liveUrl)}&metaName=${encodeURIComponent(metaName)}`,
         );
         const data = (await res.json()) as {
           status: number;
@@ -402,7 +405,7 @@ export function PublishingStatus({
 
       setAdditionalStatuses(newAdditionalStatuses);
     }
-  }, [client, pageId, pagePath, language, getContextIds, additionalChecks]);
+  }, [client, pageId, pagePath, language, getContextIds, additionalChecks, generalSettings]);
 
   // Fetch on mount and when the selected page changes or additional checks change
   useEffect(() => {

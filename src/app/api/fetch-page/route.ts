@@ -17,6 +17,8 @@ function extractMetaValue(html: string, metaName: string): string | null {
 
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
+  const metaName = request.nextUrl.searchParams.get("metaName") || "Last-Modified";
+  
   if (!url) {
     return NextResponse.json(
       { error: "url parameter required" },
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     if (status >= 200 && status < 300) {
       const html = await response.text();
-      updated = extractMetaValue(html, "Last-Modified");
+      updated = extractMetaValue(html, metaName);
     }
 
     return NextResponse.json({ status, updated });
