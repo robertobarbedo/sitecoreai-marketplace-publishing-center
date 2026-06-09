@@ -133,7 +133,8 @@ export async function loadSettings(
       );
       if (valueField?.value) {
         try {
-          displaySettings = JSON.parse(valueField.value);
+          // Merge with defaults so newly added fields always have a fallback value
+          displaySettings = { ...DEFAULT_DISPLAY_SETTINGS, ...JSON.parse(valueField.value) };
         } catch {
           // If parsing fails, use defaults
           displaySettings = DEFAULT_DISPLAY_SETTINGS;

@@ -650,19 +650,22 @@ export function PublishingActions({
 
       {/* Force Publish Button */}
       {showForcePublish && (
-        <div className="flex flex-col gap-2">
-          <Button
-            size="lg"
-            variant="outline"
-            colorScheme="primary"
-            disabled={isPublishing}
-            onClick={() => void handleForcePublish()}
-            className="w-full"
-          >
-            <Icon path={mdiSend} size={0.85} />
-            {isPublishing ? "Publishing..." : "Force Publish"}
-          </Button>
-        </div>
+        <button
+          type="button"
+          disabled={isPublishing}
+          onClick={() => void handleForcePublish()}
+          className="flex flex-row items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-left w-full"
+        >
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-100 flex-shrink-0">
+            <Icon path={mdiSend} size={0.9} className="text-orange-600" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-gray-900">
+              {isPublishing ? "Publishing..." : "Force Publish"}
+            </span>
+            <span className="text-xs text-gray-500">Full republish</span>
+          </div>
+        </button>
       )}
 
       {/* Custom Action Buttons */}
