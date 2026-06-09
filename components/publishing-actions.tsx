@@ -663,7 +663,7 @@ export function PublishingActions({
             <span className="text-sm font-medium text-gray-900">
               {isPublishing ? "Publishing..." : "Force Publish"}
             </span>
-            <span className="text-xs text-gray-500">Full republish</span>
+            <span className="text-xs text-gray-500">Slower; use if Publish isn&apos;t working</span>
           </div>
         </button>
       )}
