@@ -30,6 +30,7 @@ export interface DisplaySettings {
   showPublish: boolean;
   showUnpublish: boolean;
   showDelete: boolean;
+  showForcePublish: boolean;
   showPublishingActivity: boolean;
   showPublishingContext: boolean;
 }
@@ -64,6 +65,7 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   showPublish: true,
   showUnpublish: true,
   showDelete: true,
+  showForcePublish: false,
   showPublishingActivity: true,
   showPublishingContext: false,
 };

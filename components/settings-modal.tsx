@@ -69,6 +69,7 @@ export function SettingsModal({
   const [showPublish, setShowPublish] = useState(true);
   const [showUnpublish, setShowUnpublish] = useState(true);
   const [showDelete, setShowDelete] = useState(true);
+  const [showForcePublish, setShowForcePublish] = useState(false);
   const [showPublishingActivity, setShowPublishingActivity] = useState(true);
   const [showPublishingContext, setShowPublishingContext] = useState(false);
 
@@ -174,6 +175,7 @@ export function SettingsModal({
           setShowPublish(displaySettings.showPublish);
           setShowUnpublish(displaySettings.showUnpublish);
           setShowDelete(displaySettings.showDelete);
+          setShowForcePublish(displaySettings.showForcePublish);
           setShowPublishingActivity(displaySettings.showPublishingActivity);
           setShowPublishingContext(displaySettings.showPublishingContext);
 
@@ -215,6 +217,7 @@ export function SettingsModal({
         showPublish,
         showUnpublish,
         showDelete,
+        showForcePublish,
         showPublishingActivity,
         showPublishingContext,
       };
@@ -370,6 +373,20 @@ export function SettingsModal({
                             className="text-sm leading-none cursor-pointer text-gray-700"
                           >
                             Show Delete
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="showForcePublish"
+                            checked={showForcePublish}
+                            onCheckedChange={(checked) => setShowForcePublish(checked === true)}
+                          />
+                          <label
+                            htmlFor="showForcePublish"
+                            className="text-sm leading-none cursor-pointer text-gray-700"
+                          >
+                            Show Force Publish
                           </label>
                         </div>
                       </div>

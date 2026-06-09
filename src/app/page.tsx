@@ -29,6 +29,7 @@ function PagesContextPanel() {
     showPublish: true,
     showUnpublish: true,
     showDelete: true,
+    showForcePublish: false,
     showPublishingActivity: true,
     showPublishingContext: false,
   });
@@ -194,6 +195,7 @@ function PagesContextPanel() {
           showPublish={displaySettings.showPublish}
           showUnpublish={displaySettings.showUnpublish}
           showDelete={displaySettings.showDelete}
+          showForcePublish={displaySettings.showForcePublish}
           customActions={customActions.actions}
           isLoadingCustomActions={isLoadingCustomActions}
         />

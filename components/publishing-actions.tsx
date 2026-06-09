@@ -26,6 +26,7 @@ import {
   mdiCheckCircle,
   mdiAlertCircle,
   mdiLoading,
+  mdiSend,
 } from "@mdi/js";
 import {
   queryDeliveryItemUpdated,
@@ -45,6 +46,7 @@ export interface PublishingActionsProps {
   showPublish?: boolean;
   showUnpublish?: boolean;
   showDelete?: boolean;
+  showForcePublish?: boolean;
   customActions?: ActionConfig[];
   isLoadingCustomActions?: boolean;
 }
@@ -60,6 +62,7 @@ export function PublishingActions({
   showPublish = true,
   showUnpublish = true,
   showDelete = true,
+  showForcePublish = false,
   customActions = [],
   isLoadingCustomActions = false,
 }: PublishingActionsProps) {
@@ -378,6 +381,94 @@ export function PublishingActions({
     getContextIds,
   ]);
 
+  const handleForcePublish = useCallback(async () => {
+    if (!pageId || !pagePath || !pageName || isPublishing) return;
+
+    setIsPublishing(true);
+    setPublishError(null);
+
+    try {
+      const contextIds = getContextIds();
+      if (!contextIds.preview) {
+        throw new Error("No preview context available");
+      }
+
+      // If __Hide version is "1", clear it first
+      if (isUnpublishable) {
+        await updateItemField(
+          client,
+          contextIds.preview,
+          pageId,
+          pagePath,
+          "__Hide version",
+          "",
+          language as "en-CA" | "fr-CA",
+          pageVersion,
+        );
+        setIsUnpublishable(false);
+      }
+
+      const response = await client.mutate("xmc.authoring.graphql", {
+        params: {
+          query: { sitecoreContextId: contextIds.preview },
+          body: {
+            query: `
+              mutation {
+                publishItem(input: {
+                  rootItemId: "${pageId}"
+                  languages: ["${language}"]
+                  targetDatabases: "experienceedge"
+                  publishItemMode: FULL
+                  publishRelatedItems: true
+                  publishSubItems: false
+                  displayName: "Force Publish: ${pageName.replace(/"/g, '\\"')}"
+                }) {
+                  operationId
+                }
+              }
+            `,
+          },
+        },
+      });
+
+      type PublishResponse = {
+        data?: {
+          data?: {
+            publishItem?: {
+              operationId?: string;
+            };
+          };
+        };
+      };
+
+      const operationId = (response as PublishResponse)?.data?.data?.publishItem?.operationId;
+
+      if (!operationId) {
+        throw new Error("No operation ID returned");
+      }
+
+      setTimeout(() => {
+        setIsPublishing(false);
+      }, 5000);
+    } catch (error) {
+      console.error("Force publish error:", error);
+      setPublishError(
+        error instanceof Error ? error.message : "Failed to force publish"
+      );
+      setIsPublishing(false);
+    }
+  }, [
+    client,
+    pageId,
+    pagePath,
+    pageName,
+    language,
+    pageVersion,
+    isPublishing,
+    isUnpublishable,
+    getContextIds,
+  ]);
+
   const handleActionClick = useCallback(async (action: ActionConfig) => {
     if (!action.url || actionStates[action.id]?.loading) return;
 
@@ -556,6 +647,23 @@ export function PublishingActions({
           </button>
         )}
       </div>
+
+      {/* Force Publish Button */}
+      {showForcePublish && (
+        <div className="flex flex-col gap-2">
+          <Button
+            size="lg"
+            variant="outline"
+            colorScheme="primary"
+            disabled={isPublishing}
+            onClick={() => void handleForcePublish()}
+            className="w-full"
+          >
+            <Icon path={mdiSend} size={0.85} />
+            {isPublishing ? "Publishing..." : "Force Publish"}
+          </Button>
+        </div>
+      )}
 
       {/* Custom Action Buttons */}
       {(customActions.length > 0 || isLoadingCustomActions) && (
