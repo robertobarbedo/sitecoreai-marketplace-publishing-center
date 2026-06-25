@@ -32,8 +32,9 @@ import {
   queryDeliveryItemUpdated,
   updateItemField,
   deleteItem,
+  resolveSiteRootPath,
 } from "@/src/utils/sitecore-graphql";
-import type { ActionConfig } from "@/src/utils/sitecore-settings";
+import type { ActionConfig, PublishingOptionsSettings } from "@/src/utils/sitecore-settings";
 
 export interface PublishingActionsProps {
   client: ClientSDK;
@@ -49,6 +50,8 @@ export interface PublishingActionsProps {
   showForcePublish?: boolean;
   customActions?: ActionConfig[];
   isLoadingCustomActions?: boolean;
+  publishingOptions?: PublishingOptionsSettings;
+  supportedLanguages?: string[];
 }
 
 export function PublishingActions({
@@ -65,6 +68,8 @@ export function PublishingActions({
   showForcePublish = false,
   customActions = [],
   isLoadingCustomActions = false,
+  publishingOptions,
+  supportedLanguages = [],
 }: PublishingActionsProps) {
   const [isUnpublishable, setIsUnpublishable] = useState(false);
   const [isUnpublishableUpdating, setIsUnpublishableUpdating] = useState(false);
@@ -291,8 +296,72 @@ export function PublishingActions({
     }
   }, [client, pagePath, getContextIds]);
 
+  type PublishResponse = {
+    data?: {
+      data?: {
+        publishItem?: {
+          operationId?: string;
+        };
+      };
+    };
+  };
+
+  const executePublishMutation = useCallback(async (
+    contextId: string,
+    opts: {
+      rootItemId?: string;
+      rootItemPath?: string;
+      mode: string;
+      relatedItems: boolean;
+      subItems: boolean;
+      languages: string[];
+      displayName: string;
+    },
+  ): Promise<string> => {
+    const langList = opts.languages.map((l) => `"${l}"`).join(", ");
+    const rootParam = opts.rootItemId
+      ? `rootItemId: "${opts.rootItemId}"`
+      : `rootItemPath: "${opts.rootItemPath!.replace(/"/g, '\\"')}"`;
+
+    const response = await client.mutate("xmc.authoring.graphql", {
+      params: {
+        query: { sitecoreContextId: contextId },
+        body: {
+          query: `
+            mutation {
+              publishItem(input: {
+                ${rootParam}
+                languages: [${langList}]
+                targetDatabases: "experienceedge"
+                publishItemMode: ${opts.mode}
+                publishRelatedItems: ${opts.relatedItems}
+                publishSubItems: ${opts.subItems}
+                displayName: "${opts.displayName.replace(/"/g, '\\"')}"
+              }) {
+                operationId
+              }
+            }
+          `,
+        },
+      },
+    });
+
+    const operationId = (response as PublishResponse)?.data?.data?.publishItem?.operationId;
+    if (!operationId) {
+      throw new Error("No operation ID returned");
+    }
+    return operationId;
+  }, [client]);
+
   const handlePublish = useCallback(async () => {
     if (!pageId || !pagePath || !pageName || isPublishing) return;
+
+    const config = publishingOptions?.publish;
+    const mode = config?.mode ?? "SMART";
+    const relatedItems = config?.relatedItems ?? true;
+    const subItems = config?.subItems ?? false;
+    const langOption = config?.languages ?? "current";
+    const targets = config?.targets ?? { currentItem: true, currentItemData: false, siteDataFolder: false, fullSite: false };
 
     setIsPublishing(true);
     setPublishError(null);
@@ -303,7 +372,6 @@ export function PublishingActions({
         throw new Error("No preview context available");
       }
 
-      // If __Hide version is "1", clear it first
       if (isUnpublishable) {
         await updateItemField(
           client,
@@ -318,47 +386,44 @@ export function PublishingActions({
         setIsUnpublishable(false);
       }
 
-      // Publish using GraphQL mutation
-      const response = await client.mutate("xmc.authoring.graphql", {
-        params: {
-          query: { sitecoreContextId: contextIds.preview },
-          body: {
-            query: `
-              mutation {
-                publishItem(input: {
-                  rootItemId: "${pageId}"
-                  languages: ["${language}"]
-                  targetDatabases: "experienceedge"
-                  publishItemMode: SMART
-                  publishRelatedItems: true
-                  publishSubItems: false
-                  displayName: "Publish: ${pageName.replace(/"/g, '\\"')}"
-                }) {
-                  operationId
-                }
-              }
-            `,
-          },
-        },
-      });
+      const languages = langOption === "all" && supportedLanguages.length > 0
+        ? supportedLanguages
+        : [language];
 
-      type PublishResponse = {
-        data?: {
-          data?: {
-            publishItem?: {
-              operationId?: string;
-            };
-          };
-        };
-      };
-
-      const operationId = (response as PublishResponse)?.data?.data?.publishItem?.operationId;
-
-      if (!operationId) {
-        throw new Error("No operation ID returned");
+      if (targets.currentItem) {
+        await executePublishMutation(contextIds.preview, {
+          rootItemId: pageId,
+          mode,
+          relatedItems,
+          subItems,
+          languages,
+          displayName: `Publish: ${pageName}`,
+        });
       }
 
-      // Keep button disabled briefly
+      if (targets.currentItemData) {
+        await executePublishMutation(contextIds.preview, {
+          rootItemPath: pagePath + "/Data",
+          mode,
+          relatedItems,
+          subItems: true,
+          languages,
+          displayName: `Publish Data: ${pageName}`,
+        });
+      }
+
+      if (targets.siteDataFolder) {
+        const siteRoot = resolveSiteRootPath(pagePath);
+        await executePublishMutation(contextIds.preview, {
+          rootItemPath: siteRoot + "/Data",
+          mode,
+          relatedItems,
+          subItems: true,
+          languages,
+          displayName: "Publish Site Data",
+        });
+      }
+
       setTimeout(() => {
         setIsPublishing(false);
       }, 5000);
@@ -379,10 +444,20 @@ export function PublishingActions({
     isPublishing,
     isUnpublishable,
     getContextIds,
+    publishingOptions,
+    supportedLanguages,
+    executePublishMutation,
   ]);
 
   const handleForcePublish = useCallback(async () => {
     if (!pageId || !pagePath || !pageName || isPublishing) return;
+
+    const config = publishingOptions?.forcePublish;
+    const mode = config?.mode ?? "FULL";
+    const relatedItems = config?.relatedItems ?? true;
+    const subItems = config?.subItems ?? false;
+    const langOption = config?.languages ?? "current";
+    const targets = config?.targets ?? { currentItem: true, currentItemData: false, siteDataFolder: false, fullSite: false };
 
     setIsPublishing(true);
     setPublishError(null);
@@ -393,7 +468,6 @@ export function PublishingActions({
         throw new Error("No preview context available");
       }
 
-      // If __Hide version is "1", clear it first
       if (isUnpublishable) {
         await updateItemField(
           client,
@@ -408,43 +482,54 @@ export function PublishingActions({
         setIsUnpublishable(false);
       }
 
-      const response = await client.mutate("xmc.authoring.graphql", {
-        params: {
-          query: { sitecoreContextId: contextIds.preview },
-          body: {
-            query: `
-              mutation {
-                publishItem(input: {
-                  rootItemId: "${pageId}"
-                  languages: ["${language}"]
-                  targetDatabases: "experienceedge"
-                  publishItemMode: FULL
-                  publishRelatedItems: true
-                  publishSubItems: false
-                  displayName: "Force Publish: ${pageName.replace(/"/g, '\\"')}"
-                }) {
-                  operationId
-                }
-              }
-            `,
-          },
-        },
-      });
+      const languages = langOption === "all" && supportedLanguages.length > 0
+        ? supportedLanguages
+        : [language];
 
-      type PublishResponse = {
-        data?: {
-          data?: {
-            publishItem?: {
-              operationId?: string;
-            };
-          };
-        };
-      };
+      if (targets.fullSite) {
+        const siteRoot = resolveSiteRootPath(pagePath);
+        await executePublishMutation(contextIds.preview, {
+          rootItemPath: siteRoot,
+          mode,
+          relatedItems,
+          subItems: true,
+          languages,
+          displayName: "Force Publish: Full Site",
+        });
+      } else {
+        if (targets.currentItem) {
+          await executePublishMutation(contextIds.preview, {
+            rootItemId: pageId,
+            mode,
+            relatedItems,
+            subItems,
+            languages,
+            displayName: `Force Publish: ${pageName}`,
+          });
+        }
 
-      const operationId = (response as PublishResponse)?.data?.data?.publishItem?.operationId;
+        if (targets.currentItemData) {
+          await executePublishMutation(contextIds.preview, {
+            rootItemPath: pagePath + "/Data",
+            mode,
+            relatedItems,
+            subItems: true,
+            languages,
+            displayName: `Force Publish Data: ${pageName}`,
+          });
+        }
 
-      if (!operationId) {
-        throw new Error("No operation ID returned");
+        if (targets.siteDataFolder) {
+          const siteRoot = resolveSiteRootPath(pagePath);
+          await executePublishMutation(contextIds.preview, {
+            rootItemPath: siteRoot + "/Data",
+            mode,
+            relatedItems,
+            subItems: true,
+            languages,
+            displayName: "Force Publish Site Data",
+          });
+        }
       }
 
       setTimeout(() => {
@@ -467,6 +552,9 @@ export function PublishingActions({
     isPublishing,
     isUnpublishable,
     getContextIds,
+    publishingOptions,
+    supportedLanguages,
+    executePublishMutation,
   ]);
 
   const handleActionClick = useCallback(async (action: ActionConfig) => {

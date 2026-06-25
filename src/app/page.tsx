@@ -9,12 +9,12 @@ import { useMarketplaceClient } from "@/src/utils/hooks/useMarketplaceClient";
 import { PublishingStatus } from "@/components/publishing-status";
 import { PublishingActions } from "@/components/publishing-actions";
 import { PublishingJobs } from "@/components/publishing-jobs";
-import { PublishingContext } from "@/components/publishing-context";
+import { PageReferencesDebug } from "@/components/page-references-debug";
 import { SettingsModal } from "@/components/settings-modal";
 import { Icon } from "@/lib/icon";
 import { mdiCog } from "@mdi/js";
 import type { DataSource } from "@/src/types/datasource";
-import { loadSettings, loadAdditionalStatusChecks, loadCustomActions, loadGeneralSettings, type DisplaySettings, type AdditionalStatusChecks, type CustomActions, type GeneralSettings } from "@/src/utils/sitecore-settings";
+import { loadSettings, loadAdditionalStatusChecks, loadCustomActions, loadGeneralSettings, loadPublishingOptions, DEFAULT_PUBLISHING_OPTIONS, type DisplaySettings, type AdditionalStatusChecks, type CustomActions, type GeneralSettings, type PublishingOptionsSettings } from "@/src/utils/sitecore-settings";
 
 function PagesContextPanel() {
   const { client, error, isInitialized } = useMarketplaceClient();
@@ -31,7 +31,7 @@ function PagesContextPanel() {
     showDelete: true,
     showForcePublish: false,
     showPublishingActivity: true,
-    showPublishingContext: false,
+    showPageReferencesDebug: false,
   });
   const [additionalChecks, setAdditionalChecks] = useState<AdditionalStatusChecks>({
     checks: [],
@@ -43,6 +43,9 @@ function PagesContextPanel() {
     timestampMetaName: "Last-Modified",
   });
   const [isLoadingCustomActions, setIsLoadingCustomActions] = useState(false);
+  const [publishingOptions, setPublishingOptions] = useState<PublishingOptionsSettings>(
+    DEFAULT_PUBLISHING_OPTIONS
+  );
 
   useEffect(() => {
     if (!error && isInitialized && client) {
@@ -108,10 +111,17 @@ function PagesContextPanel() {
             pageLanguage as "en-CA" | "fr-CA"
           );
 
+          const loadedPublishingOptions = await loadPublishingOptions(
+            client,
+            contextId,
+            pageLanguage as "en-CA" | "fr-CA"
+          );
+
           setGeneralSettings(loadedGeneralSettings);
           setDisplaySettings(loadedSettings);
           setAdditionalChecks(loadedAdditionalChecks);
           setCustomActions(loadedCustomActions);
+          setPublishingOptions(loadedPublishingOptions);
         } catch (err) {
           console.error("Error loading initial settings:", err);
         } finally {
@@ -123,15 +133,14 @@ function PagesContextPanel() {
     }
   }, [client, appContext, pagesContext]);
 
-  const handleSettingsSaved = (newSettings: DisplaySettings, newGeneralSettings: GeneralSettings, newAdditionalChecks: AdditionalStatusChecks, newCustomActions: CustomActions) => {
+  const handleSettingsSaved = (newSettings: DisplaySettings, newGeneralSettings: GeneralSettings, newAdditionalChecks: AdditionalStatusChecks, newCustomActions: CustomActions, newPublishingOptions: PublishingOptionsSettings) => {
     setDisplaySettings(newSettings);
     setGeneralSettings(newGeneralSettings);
     setAdditionalChecks(newAdditionalChecks);
     setIsLoadingCustomActions(true);
     setCustomActions(newCustomActions);
-    // Increment refresh key to trigger status checks reload
+    setPublishingOptions(newPublishingOptions);
     setStatusRefreshKey(prev => prev + 1);
-    // Reset loading state after a brief moment to show the update
     setTimeout(() => {
       setIsLoadingCustomActions(false);
     }, 300);
@@ -144,6 +153,7 @@ function PagesContextPanel() {
   const pageName = pagesContext?.pageInfo?.name;
   const siteName = pagesContext?.siteInfo?.name;
   const pageRoute = pagesContext?.pageInfo?.route;
+  const supportedLanguages = (pagesContext?.siteInfo as { supportedLanguages?: string[] } | undefined)?.supportedLanguages ?? [];
 
   if (error) {
     return (
@@ -198,6 +208,8 @@ function PagesContextPanel() {
           showForcePublish={displaySettings.showForcePublish}
           customActions={customActions.actions}
           isLoadingCustomActions={isLoadingCustomActions}
+          publishingOptions={publishingOptions}
+          supportedLanguages={supportedLanguages}
         />
       )}
       {displaySettings.showPublishingActivity && (
@@ -206,8 +218,8 @@ function PagesContextPanel() {
           appContext={appContext}
         />
       )}
-      {displaySettings.showPublishingContext && (
-        <PublishingContext
+      {displaySettings.showPageReferencesDebug && (
+        <PageReferencesDebug
           siteName={siteName ?? 'website'}
           pageId={pageId}
           pageRoute={pageRoute ?? '/'}

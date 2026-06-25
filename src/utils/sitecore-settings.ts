@@ -19,6 +19,7 @@ const DISPLAY_SETTINGS_PATH = "/sitecore/system/Modules/PublishingCenter/Display
 const GENERAL_SETTINGS_PATH = "/sitecore/system/Modules/PublishingCenter/GeneralSettings";
 const ADDITIONAL_STATUS_CHECK_PATH = "/sitecore/system/Modules/PublishingCenter/AdditionalStatusCheck";
 const CUSTOM_ACTIONS_PATH = "/sitecore/system/Modules/PublishingCenter/CustomActions";
+const PUBLISHING_OPTIONS_PATH = "/sitecore/system/Modules/PublishingCenter/PublishingOptions";
 
 export interface GeneralSettings {
   timestampMetaName: string;
@@ -32,7 +33,7 @@ export interface DisplaySettings {
   showDelete: boolean;
   showForcePublish: boolean;
   showPublishingActivity: boolean;
-  showPublishingContext: boolean;
+  showPageReferencesDebug: boolean;
 }
 
 export interface StatusCheckConfig {
@@ -55,6 +56,29 @@ export interface CustomActions {
   actions: ActionConfig[];
 }
 
+export type PublishMode = "SMART" | "FULL";
+export type PublishLanguageOption = "current" | "all";
+
+export interface PublishTargets {
+  currentItem: boolean;
+  currentItemData: boolean;
+  siteDataFolder: boolean;
+  fullSite: boolean;
+}
+
+export interface PublishButtonConfig {
+  mode: PublishMode;
+  relatedItems: boolean;
+  subItems: boolean;
+  languages: PublishLanguageOption;
+  targets: PublishTargets;
+}
+
+export interface PublishingOptionsSettings {
+  publish: PublishButtonConfig;
+  forcePublish: PublishButtonConfig;
+}
+
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   timestampMetaName: "Last-Modified",
 };
@@ -67,7 +91,7 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   showDelete: true,
   showForcePublish: false,
   showPublishingActivity: true,
-  showPublishingContext: false,
+  showPageReferencesDebug: false,
 };
 
 const DEFAULT_ADDITIONAL_STATUS_CHECKS: AdditionalStatusChecks = {
@@ -76,6 +100,30 @@ const DEFAULT_ADDITIONAL_STATUS_CHECKS: AdditionalStatusChecks = {
 
 const DEFAULT_CUSTOM_ACTIONS: CustomActions = {
   actions: [],
+};
+
+const DEFAULT_PUBLISH_TARGETS: PublishTargets = {
+  currentItem: true,
+  currentItemData: false,
+  siteDataFolder: false,
+  fullSite: false,
+};
+
+export const DEFAULT_PUBLISHING_OPTIONS: PublishingOptionsSettings = {
+  publish: {
+    mode: "SMART",
+    relatedItems: true,
+    subItems: false,
+    languages: "current",
+    targets: { ...DEFAULT_PUBLISH_TARGETS },
+  },
+  forcePublish: {
+    mode: "FULL",
+    relatedItems: true,
+    subItems: false,
+    languages: "current",
+    targets: { ...DEFAULT_PUBLISH_TARGETS },
+  },
 };
 
 export async function loadGeneralSettings(
@@ -506,6 +554,129 @@ export async function saveCustomActions(
     );
   } catch (error) {
     console.error("Error saving custom actions:", error);
+    throw error;
+  }
+}
+
+function mergePublishButtonConfig(
+  defaults: PublishButtonConfig,
+  parsed: Partial<PublishButtonConfig>,
+): PublishButtonConfig {
+  return {
+    ...defaults,
+    ...parsed,
+    targets: { ...defaults.targets, ...(parsed.targets ?? {}) },
+  };
+}
+
+export async function loadPublishingOptions(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  language: Language
+): Promise<PublishingOptionsSettings> {
+  try {
+    const item = await queryItemByPath(
+      client,
+      sitecoreContextId,
+      PUBLISHING_OPTIONS_PATH,
+      language
+    );
+
+    let options = DEFAULT_PUBLISHING_OPTIONS;
+    if (item?.fields?.nodes) {
+      const valueField = item.fields.nodes.find(
+        (f) => f.name === "Value"
+      );
+      if (valueField?.value) {
+        try {
+          const parsed = JSON.parse(valueField.value);
+          options = {
+            publish: mergePublishButtonConfig(
+              DEFAULT_PUBLISHING_OPTIONS.publish,
+              parsed.publish ?? {},
+            ),
+            forcePublish: mergePublishButtonConfig(
+              DEFAULT_PUBLISHING_OPTIONS.forcePublish,
+              parsed.forcePublish ?? {},
+            ),
+          };
+        } catch {
+          options = DEFAULT_PUBLISHING_OPTIONS;
+        }
+      }
+    }
+
+    return options;
+  } catch (error) {
+    console.error("Error loading publishing options:", error);
+    return DEFAULT_PUBLISHING_OPTIONS;
+  }
+}
+
+export async function savePublishingOptions(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  publishingOptions: PublishingOptionsSettings,
+  language: Language
+): Promise<void> {
+  try {
+    let publishingCenterItem = await queryItemByPath(
+      client,
+      sitecoreContextId,
+      PUBLISHING_CENTER_PATH,
+      language
+    );
+
+    if (!publishingCenterItem) {
+      publishingCenterItem = await createItem(
+        client,
+        sitecoreContextId,
+        MODULES_PARENT_ID,
+        PUBLISHING_CENTER_TEMPLATE_ID,
+        "PublishingCenter",
+        language
+      );
+
+      if (!publishingCenterItem) {
+        throw new Error("Failed to create PublishingCenter folder");
+      }
+    }
+
+    const publishingCenterId = publishingCenterItem.itemId;
+
+    let optionsItem = await queryItemByPath(
+      client,
+      sitecoreContextId,
+      PUBLISHING_OPTIONS_PATH,
+      language
+    );
+
+    if (!optionsItem) {
+      optionsItem = await createItem(
+        client,
+        sitecoreContextId,
+        publishingCenterId,
+        SETTINGS_ITEM_TEMPLATE_ID,
+        "PublishingOptions",
+        language
+      );
+
+      if (!optionsItem) {
+        throw new Error("Failed to create PublishingOptions item");
+      }
+    }
+
+    const json = JSON.stringify(publishingOptions);
+    await updateItemFieldByPath(
+      client,
+      sitecoreContextId,
+      PUBLISHING_OPTIONS_PATH,
+      "Value",
+      json,
+      language
+    );
+  } catch (error) {
+    console.error("Error saving publishing options:", error);
     throw error;
   }
 }

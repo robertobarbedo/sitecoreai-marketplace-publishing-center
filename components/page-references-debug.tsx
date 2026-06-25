@@ -7,7 +7,7 @@ import { Icon } from "@/lib/icon";
 import { mdiChevronDown, mdiChevronUp } from "@mdi/js";
 import type { DataSource } from "@/src/types/datasource";
 
-export interface PublishingContextProps {
+export interface PageReferencesDebugProps {
   siteName: string;
   pageId: string;
   pageRoute: string;
@@ -26,7 +26,7 @@ interface CommonRoot {
   loading?: boolean;
 }
 
-export function PublishingContext({
+export function PageReferencesDebug({
   siteName,
   pageId,
   pageRoute,
@@ -35,7 +35,7 @@ export function PublishingContext({
   appContext,
   datasources,
   setDatasources,
-}: PublishingContextProps) {
+}: PageReferencesDebugProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasBeenFetched, setHasBeenFetched] = useState(false);
   const [commonRoots, setCommonRoots] = useState<CommonRoot[]>([]);
@@ -261,7 +261,7 @@ export function PublishingContext({
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex items-center justify-between w-full rounded-md px-1 py-0.5 text-sm hover:bg-gray-50 transition-colors"
       >
-        <span className="text-sm font-semibold">Publishing Context</span>
+        <span className="text-sm font-semibold">Page References Debug</span>
         <Icon 
           path={isExpanded ? mdiChevronUp : mdiChevronDown} 
           size={0.8} 

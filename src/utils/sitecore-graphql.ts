@@ -445,3 +445,16 @@ export async function updateItemFieldByPath(
     1
   );
 }
+
+/**
+ * Derives the site root path from a page's content tree path.
+ * e.g. "/sitecore/content/MySite/Home/About" -> "/sitecore/content/MySite"
+ */
+export function resolveSiteRootPath(pagePath: string): string {
+  const segments = pagePath.split("/").filter(Boolean);
+  // Expected structure: ["sitecore", "content", "SiteName", ...]
+  if (segments.length >= 3) {
+    return "/" + segments.slice(0, 3).join("/");
+  }
+  return pagePath;
+}
