@@ -373,7 +373,6 @@ export function SettingsModal({
                 <TabsTrigger value="general" variant="line">General</TabsTrigger>
                 <TabsTrigger value="statusChecks" variant="line">Add Checks</TabsTrigger>
                 <TabsTrigger value="actions" variant="line">Add Actions</TabsTrigger>
-                <TabsTrigger value="publishing" variant="line">Publishing</TabsTrigger>
               </TabsList>
 
               {/* Display Settings Tab */}
@@ -505,7 +504,7 @@ export function SettingsModal({
               </TabsContent>
 
               {/* General Settings Tab */}
-              <TabsContent value="general" className="overflow-y-auto">
+              <TabsContent value="general" className="overflow-y-auto max-h-[400px]">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <label
@@ -526,6 +525,276 @@ export function SettingsModal({
                       onChange={(e) => setTimestampMetaName(e.target.value)}
                       className="text-sm"
                     />
+                  </div>
+
+                  <Separator />
+
+                  {/* Publish Section */}
+                  <div className="flex flex-col gap-3">
+                    <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Publish</h3>
+                    <p className="text-xs text-gray-600">
+                      Configure the default options used by the Publish button.
+                    </p>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-medium text-gray-700">Mode</label>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updatePublishOption("mode", "SMART")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            publishOptions.mode === "SMART"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          Smart
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updatePublishOption("mode", "FULL")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            publishOptions.mode === "FULL"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          Republish
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="publishRelatedItems"
+                        checked={publishOptions.relatedItems}
+                        onCheckedChange={(checked) => updatePublishOption("relatedItems", checked === true)}
+                      />
+                      <label htmlFor="publishRelatedItems" className="text-xs leading-none cursor-pointer text-gray-700">
+                        Related Items
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="publishSubItems"
+                        checked={publishOptions.subItems}
+                        onCheckedChange={(checked) => updatePublishOption("subItems", checked === true)}
+                      />
+                      <label htmlFor="publishSubItems" className="text-xs leading-none cursor-pointer text-gray-700">
+                        Sub-items
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-medium text-gray-700">Languages</label>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updatePublishOption("languages", "current")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            publishOptions.languages === "current"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          Current Language
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updatePublishOption("languages", "all")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            publishOptions.languages === "all"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          All Languages
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-medium text-gray-700">Targets</label>
+                      <div className="flex flex-col gap-2 ml-1">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="publishTargetCurrentItem"
+                            checked={publishOptions.targets.currentItem}
+                            disabled
+                          />
+                          <label htmlFor="publishTargetCurrentItem" className="text-xs leading-none text-gray-500">
+                            Current Item
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="publishTargetCurrentItemData"
+                            checked={publishOptions.targets.currentItemData}
+                            onCheckedChange={(checked) => updatePublishTarget("currentItemData", checked === true)}
+                          />
+                          <label htmlFor="publishTargetCurrentItemData" className="text-xs leading-none cursor-pointer text-gray-700">
+                            Current Item Data Folder (includes subitems)
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="publishTargetSiteDataFolder"
+                            checked={publishOptions.targets.siteDataFolder}
+                            onCheckedChange={(checked) => updatePublishTarget("siteDataFolder", checked === true)}
+                          />
+                          <label htmlFor="publishTargetSiteDataFolder" className="text-xs leading-none cursor-pointer text-gray-700">
+                            Site Data Folder (includes subitems)
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Force Publish Section */}
+                  <div className="flex flex-col gap-3">
+                    <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Force Publish</h3>
+                    <p className="text-xs text-gray-600">
+                      Configure the default options used by the Force Publish button.
+                    </p>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-medium text-gray-700">Mode</label>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateForcePublishOption("mode", "SMART")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            forcePublishOptions.mode === "SMART"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          Smart
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateForcePublishOption("mode", "FULL")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            forcePublishOptions.mode === "FULL"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          Republish
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="forcePublishRelatedItems"
+                        checked={forcePublishOptions.relatedItems}
+                        onCheckedChange={(checked) => updateForcePublishOption("relatedItems", checked === true)}
+                      />
+                      <label htmlFor="forcePublishRelatedItems" className="text-xs leading-none cursor-pointer text-gray-700">
+                        Related Items
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="forcePublishSubItems"
+                        checked={forcePublishOptions.subItems}
+                        onCheckedChange={(checked) => updateForcePublishOption("subItems", checked === true)}
+                      />
+                      <label htmlFor="forcePublishSubItems" className="text-xs leading-none cursor-pointer text-gray-700">
+                        Sub-items
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-medium text-gray-700">Languages</label>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateForcePublishOption("languages", "current")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            forcePublishOptions.languages === "current"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          Current Language
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateForcePublishOption("languages", "all")}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                            forcePublishOptions.languages === "all"
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          All Languages
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-medium text-gray-700">Targets</label>
+                      <div className="flex flex-col gap-2 ml-1">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="forcePublishTargetCurrentItem"
+                            checked={forcePublishOptions.targets.currentItem}
+                            disabled={forcePublishOptions.targets.fullSite}
+                            onCheckedChange={(checked) => updateForcePublishTarget("currentItem", checked === true)}
+                          />
+                          <label
+                            htmlFor="forcePublishTargetCurrentItem"
+                            className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
+                          >
+                            Current Item
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="forcePublishTargetCurrentItemData"
+                            checked={forcePublishOptions.targets.currentItemData}
+                            disabled={forcePublishOptions.targets.fullSite}
+                            onCheckedChange={(checked) => updateForcePublishTarget("currentItemData", checked === true)}
+                          />
+                          <label
+                            htmlFor="forcePublishTargetCurrentItemData"
+                            className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
+                          >
+                            Current Item Data Folder (includes subitems)
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="forcePublishTargetSiteDataFolder"
+                            checked={forcePublishOptions.targets.siteDataFolder}
+                            disabled={forcePublishOptions.targets.fullSite}
+                            onCheckedChange={(checked) => updateForcePublishTarget("siteDataFolder", checked === true)}
+                          />
+                          <label
+                            htmlFor="forcePublishTargetSiteDataFolder"
+                            className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
+                          >
+                            Site Data Folder (includes subitems)
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="forcePublishTargetFullSite"
+                            checked={forcePublishOptions.targets.fullSite}
+                            onCheckedChange={(checked) => updateForcePublishTarget("fullSite", checked === true)}
+                          />
+                          <label htmlFor="forcePublishTargetFullSite" className="text-xs leading-none cursor-pointer text-gray-700">
+                            Full Site
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -696,272 +965,6 @@ export function SettingsModal({
                 </div>
               </TabsContent>
 
-              {/* Publishing Options Tab */}
-              <TabsContent value="publishing" className="overflow-y-auto max-h-[400px]">
-                <div className="flex flex-col gap-4">
-                  {/* Publish Section */}
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Publish</h3>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-medium text-gray-700">Mode</label>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => updatePublishOption("mode", "SMART")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            publishOptions.mode === "SMART"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          Smart
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updatePublishOption("mode", "FULL")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            publishOptions.mode === "FULL"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          Republish
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="publishRelatedItems"
-                        checked={publishOptions.relatedItems}
-                        onCheckedChange={(checked) => updatePublishOption("relatedItems", checked === true)}
-                      />
-                      <label htmlFor="publishRelatedItems" className="text-xs leading-none cursor-pointer text-gray-700">
-                        Related Items
-                      </label>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="publishSubItems"
-                        checked={publishOptions.subItems}
-                        onCheckedChange={(checked) => updatePublishOption("subItems", checked === true)}
-                      />
-                      <label htmlFor="publishSubItems" className="text-xs leading-none cursor-pointer text-gray-700">
-                        Sub-items
-                      </label>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-medium text-gray-700">Languages</label>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => updatePublishOption("languages", "current")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            publishOptions.languages === "current"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          Current Language
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updatePublishOption("languages", "all")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            publishOptions.languages === "all"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          All Languages
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-medium text-gray-700">Targets</label>
-                      <div className="flex flex-col gap-2 ml-1">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="publishTargetCurrentItem"
-                            checked={publishOptions.targets.currentItem}
-                            disabled
-                          />
-                          <label htmlFor="publishTargetCurrentItem" className="text-xs leading-none text-gray-500">
-                            Current Item
-                          </label>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="publishTargetCurrentItemData"
-                            checked={publishOptions.targets.currentItemData}
-                            onCheckedChange={(checked) => updatePublishTarget("currentItemData", checked === true)}
-                          />
-                          <label htmlFor="publishTargetCurrentItemData" className="text-xs leading-none cursor-pointer text-gray-700">
-                            Current Item Data Folder
-                          </label>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="publishTargetSiteDataFolder"
-                            checked={publishOptions.targets.siteDataFolder}
-                            onCheckedChange={(checked) => updatePublishTarget("siteDataFolder", checked === true)}
-                          />
-                          <label htmlFor="publishTargetSiteDataFolder" className="text-xs leading-none cursor-pointer text-gray-700">
-                            Site Data Folder
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Force Publish Section */}
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Force Publish</h3>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-medium text-gray-700">Mode</label>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => updateForcePublishOption("mode", "SMART")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            forcePublishOptions.mode === "SMART"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          Smart
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateForcePublishOption("mode", "FULL")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            forcePublishOptions.mode === "FULL"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          Republish
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="forcePublishRelatedItems"
-                        checked={forcePublishOptions.relatedItems}
-                        onCheckedChange={(checked) => updateForcePublishOption("relatedItems", checked === true)}
-                      />
-                      <label htmlFor="forcePublishRelatedItems" className="text-xs leading-none cursor-pointer text-gray-700">
-                        Related Items
-                      </label>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="forcePublishSubItems"
-                        checked={forcePublishOptions.subItems}
-                        onCheckedChange={(checked) => updateForcePublishOption("subItems", checked === true)}
-                      />
-                      <label htmlFor="forcePublishSubItems" className="text-xs leading-none cursor-pointer text-gray-700">
-                        Sub-items
-                      </label>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-medium text-gray-700">Languages</label>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => updateForcePublishOption("languages", "current")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            forcePublishOptions.languages === "current"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          Current Language
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateForcePublishOption("languages", "all")}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            forcePublishOptions.languages === "all"
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          All Languages
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-medium text-gray-700">Targets</label>
-                      <div className="flex flex-col gap-2 ml-1">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="forcePublishTargetCurrentItem"
-                            checked={forcePublishOptions.targets.currentItem}
-                            disabled={forcePublishOptions.targets.fullSite}
-                            onCheckedChange={(checked) => updateForcePublishTarget("currentItem", checked === true)}
-                          />
-                          <label
-                            htmlFor="forcePublishTargetCurrentItem"
-                            className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
-                          >
-                            Current Item
-                          </label>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="forcePublishTargetCurrentItemData"
-                            checked={forcePublishOptions.targets.currentItemData}
-                            disabled={forcePublishOptions.targets.fullSite}
-                            onCheckedChange={(checked) => updateForcePublishTarget("currentItemData", checked === true)}
-                          />
-                          <label
-                            htmlFor="forcePublishTargetCurrentItemData"
-                            className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
-                          >
-                            Current Item Data Folder
-                          </label>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="forcePublishTargetSiteDataFolder"
-                            checked={forcePublishOptions.targets.siteDataFolder}
-                            disabled={forcePublishOptions.targets.fullSite}
-                            onCheckedChange={(checked) => updateForcePublishTarget("siteDataFolder", checked === true)}
-                          />
-                          <label
-                            htmlFor="forcePublishTargetSiteDataFolder"
-                            className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
-                          >
-                            Site Data Folder
-                          </label>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="forcePublishTargetFullSite"
-                            checked={forcePublishOptions.targets.fullSite}
-                            onCheckedChange={(checked) => updateForcePublishTarget("fullSite", checked === true)}
-                          />
-                          <label htmlFor="forcePublishTargetFullSite" className="text-xs leading-none cursor-pointer text-gray-700">
-                            Full Site
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
             </Tabs>
 
             {/* Error Message */}
