@@ -121,6 +121,8 @@ export function SettingsModal({
     if (target === "fullSite" && value) {
       setForcePublishOptions((prev) => ({
         ...prev,
+        relatedItems: false,
+        subItems: false,
         targets: {
           currentItem: false,
           currentItemData: false,
@@ -692,9 +694,13 @@ export function SettingsModal({
                       <Checkbox
                         id="forcePublishRelatedItems"
                         checked={forcePublishOptions.relatedItems}
+                        disabled={forcePublishOptions.targets.fullSite}
                         onCheckedChange={(checked) => updateForcePublishOption("relatedItems", checked === true)}
                       />
-                      <label htmlFor="forcePublishRelatedItems" className="text-xs leading-none cursor-pointer text-gray-700">
+                      <label
+                        htmlFor="forcePublishRelatedItems"
+                        className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
+                      >
                         Related Items
                       </label>
                     </div>
@@ -703,9 +709,13 @@ export function SettingsModal({
                       <Checkbox
                         id="forcePublishSubItems"
                         checked={forcePublishOptions.subItems}
+                        disabled={forcePublishOptions.targets.fullSite}
                         onCheckedChange={(checked) => updateForcePublishOption("subItems", checked === true)}
                       />
-                      <label htmlFor="forcePublishSubItems" className="text-xs leading-none cursor-pointer text-gray-700">
+                      <label
+                        htmlFor="forcePublishSubItems"
+                        className={`text-xs leading-none ${forcePublishOptions.targets.fullSite ? "text-gray-400" : "cursor-pointer text-gray-700"}`}
+                      >
                         Sub-items
                       </label>
                     </div>
