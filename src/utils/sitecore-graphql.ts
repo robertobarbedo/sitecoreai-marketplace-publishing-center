@@ -447,14 +447,51 @@ export async function updateItemFieldByPath(
 }
 
 /**
- * Derives the site root path from a page's content tree path.
- * e.g. "/sitecore/content/MySite/Home/About" -> "/sitecore/content/MySite"
+ * Resolves the site root path by querying configured sites from the authoring API
+ * and finding which site the given page belongs to.
  */
-export function resolveSiteRootPath(pagePath: string): string {
-  const segments = pagePath.split("/").filter(Boolean);
-  // Expected structure: ["sitecore", "content", "SiteName", ...]
-  if (segments.length >= 3) {
-    return "/" + segments.slice(0, 3).join("/");
+export async function resolveSiteRootPath(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  pagePath: string,
+): Promise<string> {
+  const response = await client.mutate("xmc.authoring.graphql", {
+    params: {
+      query: { sitecoreContextId },
+      body: {
+        query: `
+          query GetSites {
+            sites {
+              name
+              rootPath
+            }
+          }
+        `,
+      },
+    },
+  });
+
+  const data = response?.data as {
+    data?: { sites?: Array<{ name: string; rootPath: string }> };
+  };
+  const sites = data?.data?.sites;
+
+  if (sites?.length) {
+    const normalizedPagePath = pagePath.toLowerCase();
+    let bestMatch = "";
+    for (const site of sites) {
+      const normalizedRoot = site.rootPath.toLowerCase();
+      if (
+        normalizedPagePath.startsWith(normalizedRoot) &&
+        site.rootPath.length > bestMatch.length
+      ) {
+        bestMatch = site.rootPath;
+      }
+    }
+    if (bestMatch) {
+      return bestMatch;
+    }
   }
+
   return pagePath;
 }

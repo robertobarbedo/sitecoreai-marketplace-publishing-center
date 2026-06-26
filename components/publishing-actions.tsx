@@ -413,7 +413,7 @@ export function PublishingActions({
       }
 
       if (targets.siteDataFolder) {
-        const siteRoot = resolveSiteRootPath(pagePath);
+        const siteRoot = await resolveSiteRootPath(client, contextIds.preview, pagePath);
         await executePublishMutation(contextIds.preview, {
           rootItemPath: siteRoot + "/Data",
           mode,
@@ -487,7 +487,7 @@ export function PublishingActions({
         : [language];
 
       if (targets.fullSite) {
-        const siteRoot = resolveSiteRootPath(pagePath);
+        const siteRoot = await resolveSiteRootPath(client, contextIds.preview, pagePath);
         await executePublishMutation(contextIds.preview, {
           rootItemPath: siteRoot,
           mode,
@@ -520,7 +520,7 @@ export function PublishingActions({
         }
 
         if (targets.siteDataFolder) {
-          const siteRoot = resolveSiteRootPath(pagePath);
+          const siteRoot = await resolveSiteRootPath(client, contextIds.preview, pagePath);
           await executePublishMutation(contextIds.preview, {
             rootItemPath: siteRoot + "/Data",
             mode,
