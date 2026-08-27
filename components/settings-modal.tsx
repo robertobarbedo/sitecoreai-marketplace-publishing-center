@@ -71,6 +71,7 @@ export function SettingsModal({
 
   // General Settings state
   const [timestampMetaName, setTimestampMetaName] = useState("Last-Modified");
+  const [vercelProtectionBypass, setVercelProtectionBypass] = useState("");
 
   // Display Settings state
   const [showPublishingStatus, setShowPublishingStatus] = useState(true);
@@ -227,6 +228,7 @@ export function SettingsModal({
 
           // Update general settings state
           setTimestampMetaName(generalSettings.timestampMetaName || "Last-Modified");
+          setVercelProtectionBypass(generalSettings.vercelProtectionBypass || "");
 
           // Update display settings state
           setShowPublishingStatus(displaySettings.showPublishingStatus);
@@ -277,6 +279,7 @@ export function SettingsModal({
 
       const generalSettings: GeneralSettings = {
         timestampMetaName: timestampMetaName.trim() || "Last-Modified",
+        vercelProtectionBypass: vercelProtectionBypass.trim(),
       };
 
       const displaySettings: DisplaySettings = {
@@ -525,6 +528,29 @@ export function SettingsModal({
                       placeholder="Last-Modified"
                       value={timestampMetaName}
                       onChange={(e) => setTimestampMetaName(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="vercelProtectionBypass"
+                      className="text-sm font-medium leading-none"
+                    >
+                      Vercel's Deployment Protection Password
+                    </label>
+                    <p className="text-xs text-gray-600">
+                      Bypass password for Vercel's Deployment Protection. When set, the Website
+                      status check fetches the page with the x-vercel-protection-bypass query
+                      string so protected deployments can be checked. Leave empty if the site
+                      is not protected.
+                    </p>
+                    <Input
+                      id="vercelProtectionBypass"
+                      type="password"
+                      placeholder=""
+                      value={vercelProtectionBypass}
+                      onChange={(e) => setVercelProtectionBypass(e.target.value)}
                       className="text-sm"
                     />
                   </div>

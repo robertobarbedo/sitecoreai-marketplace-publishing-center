@@ -14,15 +14,31 @@ const MODULES_PARENT_ID = "{08477468-D438-43D4-9D6A-6D84A611971C}";
 
 // Paths
 const MODULES_PATH = "/sitecore/system/Modules";
-const PUBLISHING_CENTER_PATH = "/sitecore/system/Modules/PublishingCenter";
-const DISPLAY_SETTINGS_PATH = "/sitecore/system/Modules/PublishingCenter/DisplaySettings";
-const GENERAL_SETTINGS_PATH = "/sitecore/system/Modules/PublishingCenter/GeneralSettings";
-const ADDITIONAL_STATUS_CHECK_PATH = "/sitecore/system/Modules/PublishingCenter/AdditionalStatusCheck";
-const CUSTOM_ACTIONS_PATH = "/sitecore/system/Modules/PublishingCenter/CustomActions";
-const PUBLISHING_OPTIONS_PATH = "/sitecore/system/Modules/PublishingCenter/PublishingOptions";
+const MARKETPLACE_FOLDER_PATH = `${MODULES_PATH}/Marketplace`;
+const PUBLISHING_CENTER_PATH = `${MARKETPLACE_FOLDER_PATH}/PublishingCenter`;
+const DISPLAY_SETTINGS_PATH = `${PUBLISHING_CENTER_PATH}/DisplaySettings`;
+const GENERAL_SETTINGS_PATH = `${PUBLISHING_CENTER_PATH}/GeneralSettings`;
+const ADDITIONAL_STATUS_CHECK_PATH = `${PUBLISHING_CENTER_PATH}/AdditionalStatusCheck`;
+const CUSTOM_ACTIONS_PATH = `${PUBLISHING_CENTER_PATH}/CustomActions`;
+const PUBLISHING_OPTIONS_PATH = `${PUBLISHING_CENTER_PATH}/PublishingOptions`;
+
+// Legacy paths, from before settings moved under the Marketplace folder.
+const LEGACY_PUBLISHING_CENTER_PATH = `${MODULES_PATH}/PublishingCenter`;
+const LEGACY_DISPLAY_SETTINGS_PATH = `${LEGACY_PUBLISHING_CENTER_PATH}/DisplaySettings`;
+const LEGACY_GENERAL_SETTINGS_PATH = `${LEGACY_PUBLISHING_CENTER_PATH}/GeneralSettings`;
+const LEGACY_ADDITIONAL_STATUS_CHECK_PATH = `${LEGACY_PUBLISHING_CENTER_PATH}/AdditionalStatusCheck`;
+const LEGACY_CUSTOM_ACTIONS_PATH = `${LEGACY_PUBLISHING_CENTER_PATH}/CustomActions`;
+const LEGACY_PUBLISHING_OPTIONS_PATH = `${LEGACY_PUBLISHING_CENTER_PATH}/PublishingOptions`;
 
 export interface GeneralSettings {
   timestampMetaName: string;
+  /**
+   * Vercel Deployment Protection bypass password. When set, the Website
+   * status check appends ?x-vercel-protection-bypass=...&x-vercel-set-bypass-cookie=true
+   * to the fetched page URL so protected deployments answer with the page
+   * instead of the auth wall.
+   */
+  vercelProtectionBypass: string;
 }
 
 export interface DisplaySettings {
@@ -81,6 +97,7 @@ export interface PublishingOptionsSettings {
 
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   timestampMetaName: "Last-Modified",
+  vercelProtectionBypass: "",
 };
 
 const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
@@ -126,34 +143,118 @@ export const DEFAULT_PUBLISHING_OPTIONS: PublishingOptionsSettings = {
   },
 };
 
+/** Reads and JSON-parses the `Value` field of the item at `path`; null if absent/unparsable. */
+async function readValueField(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  path: string,
+  language: Language
+): Promise<unknown> {
+  const item = await queryItemByPath(client, sitecoreContextId, path, language);
+  const valueField = item?.fields?.nodes?.find((f) => f.name === "Value");
+  if (!valueField?.value) return null;
+
+  try {
+    return JSON.parse(valueField.value);
+  } catch {
+    return null;
+  }
+}
+
+/** Ensures a folder item exists, creating it under `parentId` if missing. */
+async function ensureFolder(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  path: string,
+  parentId: string,
+  name: string,
+  language: Language
+): Promise<SitecoreItem> {
+  const existing = await queryItemByPath(client, sitecoreContextId, path, language);
+  if (existing) return existing;
+
+  const created = await createItem(
+    client,
+    sitecoreContextId,
+    parentId,
+    PUBLISHING_CENTER_TEMPLATE_ID,
+    name,
+    language
+  );
+  if (!created) {
+    throw new Error(`Failed to create ${name} folder`);
+  }
+  return created;
+}
+
+/** Ensures /sitecore/system/Modules/Marketplace/PublishingCenter exists; returns its item. */
+async function ensurePublishingCenterFolder(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  language: Language
+): Promise<SitecoreItem> {
+  const marketplaceFolder = await ensureFolder(
+    client,
+    sitecoreContextId,
+    MARKETPLACE_FOLDER_PATH,
+    MODULES_PARENT_ID,
+    "Marketplace",
+    language
+  );
+  return ensureFolder(
+    client,
+    sitecoreContextId,
+    PUBLISHING_CENTER_PATH,
+    marketplaceFolder.itemId,
+    "PublishingCenter",
+    language
+  );
+}
+
+/** Ensures a Settings-type item exists at `path` under `parentId`, then writes `value` to it. */
+async function saveValueItem(
+  client: ClientSDK,
+  sitecoreContextId: string,
+  path: string,
+  parentId: string,
+  name: string,
+  value: unknown,
+  language: Language
+): Promise<void> {
+  let item = await queryItemByPath(client, sitecoreContextId, path, language);
+
+  if (!item) {
+    item = await createItem(
+      client,
+      sitecoreContextId,
+      parentId,
+      SETTINGS_ITEM_TEMPLATE_ID,
+      name,
+      language
+    );
+
+    if (!item) {
+      throw new Error(`Failed to create ${name} item`);
+    }
+  }
+
+  await updateItemFieldByPath(client, sitecoreContextId, path, "Value", JSON.stringify(value), language);
+}
+
 export async function loadGeneralSettings(
   client: ClientSDK,
   sitecoreContextId: string,
   language: Language
 ): Promise<GeneralSettings> {
   try {
-    const generalSettingsItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      GENERAL_SETTINGS_PATH,
-      language
-    );
+    // Settings moved under /sitecore/system/Modules/Marketplace; fall back to
+    // the legacy location so existing installs keep their settings. The next
+    // save writes to the new path.
+    const parsed =
+      (await readValueField(client, sitecoreContextId, GENERAL_SETTINGS_PATH, language)) ??
+      (await readValueField(client, sitecoreContextId, LEGACY_GENERAL_SETTINGS_PATH, language));
 
-    let generalSettings = DEFAULT_GENERAL_SETTINGS;
-    if (generalSettingsItem?.fields?.nodes) {
-      const valueField = generalSettingsItem.fields.nodes.find(
-        (f) => f.name === "Value"
-      );
-      if (valueField?.value) {
-        try {
-          generalSettings = JSON.parse(valueField.value);
-        } catch {
-          generalSettings = DEFAULT_GENERAL_SETTINGS;
-        }
-      }
-    }
-
-    return generalSettings;
+    return parsed ? { ...DEFAULT_GENERAL_SETTINGS, ...(parsed as Partial<GeneralSettings>) } : DEFAULT_GENERAL_SETTINGS;
   } catch (error) {
     console.error("Error loading general settings:", error);
     return DEFAULT_GENERAL_SETTINGS;
@@ -166,31 +267,11 @@ export async function loadSettings(
   language: Language
 ): Promise<DisplaySettings> {
   try {
-    // Load Display Settings
-    const displaySettingsItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      DISPLAY_SETTINGS_PATH,
-      language
-    );
+    const parsed =
+      (await readValueField(client, sitecoreContextId, DISPLAY_SETTINGS_PATH, language)) ??
+      (await readValueField(client, sitecoreContextId, LEGACY_DISPLAY_SETTINGS_PATH, language));
 
-    let displaySettings = DEFAULT_DISPLAY_SETTINGS;
-    if (displaySettingsItem?.fields?.nodes) {
-      const valueField = displaySettingsItem.fields.nodes.find(
-        (f) => f.name === "Value"
-      );
-      if (valueField?.value) {
-        try {
-          // Merge with defaults so newly added fields always have a fallback value
-          displaySettings = { ...DEFAULT_DISPLAY_SETTINGS, ...JSON.parse(valueField.value) };
-        } catch {
-          // If parsing fails, use defaults
-          displaySettings = DEFAULT_DISPLAY_SETTINGS;
-        }
-      }
-    }
-
-    return displaySettings;
+    return parsed ? { ...DEFAULT_DISPLAY_SETTINGS, ...(parsed as Partial<DisplaySettings>) } : DEFAULT_DISPLAY_SETTINGS;
   } catch (error) {
     console.error("Error loading settings:", error);
     return DEFAULT_DISPLAY_SETTINGS;
@@ -203,29 +284,11 @@ export async function loadAdditionalStatusChecks(
   language: Language
 ): Promise<AdditionalStatusChecks> {
   try {
-    const additionalStatusCheckItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      ADDITIONAL_STATUS_CHECK_PATH,
-      language
-    );
+    const parsed =
+      (await readValueField(client, sitecoreContextId, ADDITIONAL_STATUS_CHECK_PATH, language)) ??
+      (await readValueField(client, sitecoreContextId, LEGACY_ADDITIONAL_STATUS_CHECK_PATH, language));
 
-    let additionalStatusChecks = DEFAULT_ADDITIONAL_STATUS_CHECKS;
-    if (additionalStatusCheckItem?.fields?.nodes) {
-      const valueField = additionalStatusCheckItem.fields.nodes.find(
-        (f) => f.name === "Value"
-      );
-      if (valueField?.value) {
-        try {
-          additionalStatusChecks = JSON.parse(valueField.value);
-        } catch {
-          // If parsing fails, use defaults
-          additionalStatusChecks = DEFAULT_ADDITIONAL_STATUS_CHECKS;
-        }
-      }
-    }
-
-    return additionalStatusChecks;
+    return (parsed as AdditionalStatusChecks | null) ?? DEFAULT_ADDITIONAL_STATUS_CHECKS;
   } catch (error) {
     console.error("Error loading additional status checks:", error);
     return DEFAULT_ADDITIONAL_STATUS_CHECKS;
@@ -239,64 +302,14 @@ export async function saveGeneralSettings(
   language: Language
 ): Promise<void> {
   try {
-    // 1. Ensure PublishingCenter folder exists
-    let publishingCenterItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_CENTER_PATH,
-      language
-    );
-
-    if (!publishingCenterItem) {
-      // Create PublishingCenter folder
-      publishingCenterItem = await createItem(
-        client,
-        sitecoreContextId,
-        MODULES_PARENT_ID,
-        PUBLISHING_CENTER_TEMPLATE_ID,
-        "PublishingCenter",
-        language
-      );
-
-      if (!publishingCenterItem) {
-        throw new Error("Failed to create PublishingCenter folder");
-      }
-    }
-
-    const publishingCenterId = publishingCenterItem.itemId;
-
-    // 2. Ensure GeneralSettings item exists
-    let generalSettingsItem = await queryItemByPath(
+    const publishingCenterItem = await ensurePublishingCenterFolder(client, sitecoreContextId, language);
+    await saveValueItem(
       client,
       sitecoreContextId,
       GENERAL_SETTINGS_PATH,
-      language
-    );
-
-    if (!generalSettingsItem) {
-      // Create GeneralSettings item
-      generalSettingsItem = await createItem(
-        client,
-        sitecoreContextId,
-        publishingCenterId,
-        SETTINGS_ITEM_TEMPLATE_ID,
-        "GeneralSettings",
-        language
-      );
-
-      if (!generalSettingsItem) {
-        throw new Error("Failed to create GeneralSettings item");
-      }
-    }
-
-    // 3. Update GeneralSettings Value field with JSON
-    const generalSettingsJson = JSON.stringify(generalSettings);
-    await updateItemFieldByPath(
-      client,
-      sitecoreContextId,
-      GENERAL_SETTINGS_PATH,
-      "Value",
-      generalSettingsJson,
+      publishingCenterItem.itemId,
+      "GeneralSettings",
+      generalSettings,
       language
     );
   } catch (error) {
@@ -312,64 +325,14 @@ export async function saveSettings(
   language: Language
 ): Promise<void> {
   try {
-    // 1. Ensure PublishingCenter folder exists
-    let publishingCenterItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_CENTER_PATH,
-      language
-    );
-
-    if (!publishingCenterItem) {
-      // Create PublishingCenter folder
-      publishingCenterItem = await createItem(
-        client,
-        sitecoreContextId,
-        MODULES_PARENT_ID,
-        PUBLISHING_CENTER_TEMPLATE_ID,
-        "PublishingCenter",
-        language
-      );
-
-      if (!publishingCenterItem) {
-        throw new Error("Failed to create PublishingCenter folder");
-      }
-    }
-
-    const publishingCenterId = publishingCenterItem.itemId;
-
-    // 2. Ensure DisplaySettings item exists
-    let displaySettingsItem = await queryItemByPath(
+    const publishingCenterItem = await ensurePublishingCenterFolder(client, sitecoreContextId, language);
+    await saveValueItem(
       client,
       sitecoreContextId,
       DISPLAY_SETTINGS_PATH,
-      language
-    );
-
-    if (!displaySettingsItem) {
-      // Create DisplaySettings item
-      displaySettingsItem = await createItem(
-        client,
-        sitecoreContextId,
-        publishingCenterId,
-        SETTINGS_ITEM_TEMPLATE_ID,
-        "DisplaySettings",
-        language
-      );
-
-      if (!displaySettingsItem) {
-        throw new Error("Failed to create DisplaySettings item");
-      }
-    }
-
-    // 3. Update DisplaySettings Value field with JSON
-    const displaySettingsJson = JSON.stringify(displaySettings);
-    await updateItemFieldByPath(
-      client,
-      sitecoreContextId,
-      DISPLAY_SETTINGS_PATH,
-      "Value",
-      displaySettingsJson,
+      publishingCenterItem.itemId,
+      "DisplaySettings",
+      displaySettings,
       language
     );
   } catch (error) {
@@ -385,64 +348,14 @@ export async function saveAdditionalStatusChecks(
   language: Language
 ): Promise<void> {
   try {
-    // 1. Ensure PublishingCenter folder exists
-    let publishingCenterItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_CENTER_PATH,
-      language
-    );
-
-    if (!publishingCenterItem) {
-      // Create PublishingCenter folder
-      publishingCenterItem = await createItem(
-        client,
-        sitecoreContextId,
-        MODULES_PARENT_ID,
-        PUBLISHING_CENTER_TEMPLATE_ID,
-        "PublishingCenter",
-        language
-      );
-
-      if (!publishingCenterItem) {
-        throw new Error("Failed to create PublishingCenter folder");
-      }
-    }
-
-    const publishingCenterId = publishingCenterItem.itemId;
-
-    // 2. Ensure AdditionalStatusCheck item exists
-    let additionalStatusCheckItem = await queryItemByPath(
+    const publishingCenterItem = await ensurePublishingCenterFolder(client, sitecoreContextId, language);
+    await saveValueItem(
       client,
       sitecoreContextId,
       ADDITIONAL_STATUS_CHECK_PATH,
-      language
-    );
-
-    if (!additionalStatusCheckItem) {
-      // Create AdditionalStatusCheck item
-      additionalStatusCheckItem = await createItem(
-        client,
-        sitecoreContextId,
-        publishingCenterId,
-        SETTINGS_ITEM_TEMPLATE_ID,
-        "AdditionalStatusCheck",
-        language
-      );
-
-      if (!additionalStatusCheckItem) {
-        throw new Error("Failed to create AdditionalStatusCheck item");
-      }
-    }
-
-    // 3. Update AdditionalStatusCheck Value field with JSON
-    const additionalStatusChecksJson = JSON.stringify(additionalStatusChecks);
-    await updateItemFieldByPath(
-      client,
-      sitecoreContextId,
-      ADDITIONAL_STATUS_CHECK_PATH,
-      "Value",
-      additionalStatusChecksJson,
+      publishingCenterItem.itemId,
+      "AdditionalStatusCheck",
+      additionalStatusChecks,
       language
     );
   } catch (error) {
@@ -457,28 +370,11 @@ export async function loadCustomActions(
   language: Language
 ): Promise<CustomActions> {
   try {
-    const customActionsItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      CUSTOM_ACTIONS_PATH,
-      language
-    );
+    const parsed =
+      (await readValueField(client, sitecoreContextId, CUSTOM_ACTIONS_PATH, language)) ??
+      (await readValueField(client, sitecoreContextId, LEGACY_CUSTOM_ACTIONS_PATH, language));
 
-    let customActions = DEFAULT_CUSTOM_ACTIONS;
-    if (customActionsItem?.fields?.nodes) {
-      const valueField = customActionsItem.fields.nodes.find(
-        (f) => f.name === "Value"
-      );
-      if (valueField?.value) {
-        try {
-          customActions = JSON.parse(valueField.value);
-        } catch {
-          customActions = DEFAULT_CUSTOM_ACTIONS;
-        }
-      }
-    }
-
-    return customActions;
+    return (parsed as CustomActions | null) ?? DEFAULT_CUSTOM_ACTIONS;
   } catch (error) {
     console.error("Error loading custom actions:", error);
     return DEFAULT_CUSTOM_ACTIONS;
@@ -492,64 +388,14 @@ export async function saveCustomActions(
   language: Language
 ): Promise<void> {
   try {
-    // 1. Ensure PublishingCenter folder exists
-    let publishingCenterItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_CENTER_PATH,
-      language
-    );
-
-    if (!publishingCenterItem) {
-      // Create PublishingCenter folder
-      publishingCenterItem = await createItem(
-        client,
-        sitecoreContextId,
-        MODULES_PARENT_ID,
-        PUBLISHING_CENTER_TEMPLATE_ID,
-        "PublishingCenter",
-        language
-      );
-
-      if (!publishingCenterItem) {
-        throw new Error("Failed to create PublishingCenter folder");
-      }
-    }
-
-    const publishingCenterId = publishingCenterItem.itemId;
-
-    // 2. Ensure CustomActions item exists
-    let customActionsItem = await queryItemByPath(
+    const publishingCenterItem = await ensurePublishingCenterFolder(client, sitecoreContextId, language);
+    await saveValueItem(
       client,
       sitecoreContextId,
       CUSTOM_ACTIONS_PATH,
-      language
-    );
-
-    if (!customActionsItem) {
-      // Create CustomActions item
-      customActionsItem = await createItem(
-        client,
-        sitecoreContextId,
-        publishingCenterId,
-        SETTINGS_ITEM_TEMPLATE_ID,
-        "CustomActions",
-        language
-      );
-
-      if (!customActionsItem) {
-        throw new Error("Failed to create CustomActions item");
-      }
-    }
-
-    // 3. Update CustomActions Value field with JSON
-    const customActionsJson = JSON.stringify(customActions);
-    await updateItemFieldByPath(
-      client,
-      sitecoreContextId,
-      CUSTOM_ACTIONS_PATH,
-      "Value",
-      customActionsJson,
+      publishingCenterItem.itemId,
+      "CustomActions",
+      customActions,
       language
     );
   } catch (error) {
@@ -575,38 +421,17 @@ export async function loadPublishingOptions(
   language: Language
 ): Promise<PublishingOptionsSettings> {
   try {
-    const item = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_OPTIONS_PATH,
-      language
-    );
+    const parsed =
+      (await readValueField(client, sitecoreContextId, PUBLISHING_OPTIONS_PATH, language)) ??
+      (await readValueField(client, sitecoreContextId, LEGACY_PUBLISHING_OPTIONS_PATH, language));
 
-    let options = DEFAULT_PUBLISHING_OPTIONS;
-    if (item?.fields?.nodes) {
-      const valueField = item.fields.nodes.find(
-        (f) => f.name === "Value"
-      );
-      if (valueField?.value) {
-        try {
-          const parsed = JSON.parse(valueField.value);
-          options = {
-            publish: mergePublishButtonConfig(
-              DEFAULT_PUBLISHING_OPTIONS.publish,
-              parsed.publish ?? {},
-            ),
-            forcePublish: mergePublishButtonConfig(
-              DEFAULT_PUBLISHING_OPTIONS.forcePublish,
-              parsed.forcePublish ?? {},
-            ),
-          };
-        } catch {
-          options = DEFAULT_PUBLISHING_OPTIONS;
-        }
-      }
-    }
+    if (!parsed) return DEFAULT_PUBLISHING_OPTIONS;
 
-    return options;
+    const typed = parsed as { publish?: Partial<PublishButtonConfig>; forcePublish?: Partial<PublishButtonConfig> };
+    return {
+      publish: mergePublishButtonConfig(DEFAULT_PUBLISHING_OPTIONS.publish, typed.publish ?? {}),
+      forcePublish: mergePublishButtonConfig(DEFAULT_PUBLISHING_OPTIONS.forcePublish, typed.forcePublish ?? {}),
+    };
   } catch (error) {
     console.error("Error loading publishing options:", error);
     return DEFAULT_PUBLISHING_OPTIONS;
@@ -620,59 +445,14 @@ export async function savePublishingOptions(
   language: Language
 ): Promise<void> {
   try {
-    let publishingCenterItem = await queryItemByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_CENTER_PATH,
-      language
-    );
-
-    if (!publishingCenterItem) {
-      publishingCenterItem = await createItem(
-        client,
-        sitecoreContextId,
-        MODULES_PARENT_ID,
-        PUBLISHING_CENTER_TEMPLATE_ID,
-        "PublishingCenter",
-        language
-      );
-
-      if (!publishingCenterItem) {
-        throw new Error("Failed to create PublishingCenter folder");
-      }
-    }
-
-    const publishingCenterId = publishingCenterItem.itemId;
-
-    let optionsItem = await queryItemByPath(
+    const publishingCenterItem = await ensurePublishingCenterFolder(client, sitecoreContextId, language);
+    await saveValueItem(
       client,
       sitecoreContextId,
       PUBLISHING_OPTIONS_PATH,
-      language
-    );
-
-    if (!optionsItem) {
-      optionsItem = await createItem(
-        client,
-        sitecoreContextId,
-        publishingCenterId,
-        SETTINGS_ITEM_TEMPLATE_ID,
-        "PublishingOptions",
-        language
-      );
-
-      if (!optionsItem) {
-        throw new Error("Failed to create PublishingOptions item");
-      }
-    }
-
-    const json = JSON.stringify(publishingOptions);
-    await updateItemFieldByPath(
-      client,
-      sitecoreContextId,
-      PUBLISHING_OPTIONS_PATH,
-      "Value",
-      json,
+      publishingCenterItem.itemId,
+      "PublishingOptions",
+      publishingOptions,
       language
     );
   } catch (error) {

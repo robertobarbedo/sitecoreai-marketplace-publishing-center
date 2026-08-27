@@ -298,8 +298,16 @@ export function PublishingStatus({
     } else {
       try {
         const metaName = generalSettings?.timestampMetaName || "Last-Modified";
+        // Vercel Deployment Protection: append the bypass query string so
+        // protected deployments answer with the page instead of the auth wall.
+        const bypassPassword = generalSettings?.vercelProtectionBypass?.trim();
+        let fetchUrl = liveUrl;
+        if (bypassPassword) {
+          const separator = liveUrl.includes("?") ? "&" : "?";
+          fetchUrl = `${liveUrl}${separator}x-vercel-protection-bypass=${encodeURIComponent(bypassPassword)}&x-vercel-set-bypass-cookie=true`;
+        }
         const res = await fetch(
-          `/api/fetch-page?url=${encodeURIComponent(liveUrl)}&metaName=${encodeURIComponent(metaName)}`,
+          `/api/fetch-page?url=${encodeURIComponent(fetchUrl)}&metaName=${encodeURIComponent(metaName)}`,
         );
         const data = (await res.json()) as {
           status: number;
