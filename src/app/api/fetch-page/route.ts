@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSitecoreUser } from "../../../lib/marketplace-auth/server";
 import { fetchPublicUrl, readCapped } from "../../../utils/publicFetch";
 import { describeRequestError } from "../../../utils/ssrfGuard";
-import { EncryptionUnavailableError, SecretSealError, isSealed, openSecret } from "../../../lib/secret-crypto";
+import { EncryptionUnavailableError, SecretSealError, openSecret } from "../../../lib/secret-crypto";
 
 /**
  * Vercel Deployment Protection bypass secret for the fetched site, in the
  * sealed form stored in the settings item (see src/lib/secret-crypto.ts).
  * Sent by the client as a header (never in the URL, where it would land in
- * request logs), opened here, and forwarded as Vercel's own header, to the
- * original origin only.
+ * request logs), opened here, and forwarded as Vercel's own header only when
+ * the page's hostname is one the password was sealed for — never to a host
+ * the caller picks — and to that original origin only (not across redirects).
  */
 const BYPASS_REQUEST_HEADER = "x-target-protection-bypass";
 
@@ -43,13 +44,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // A plaintext value only arrives from settings saved by an earlier version,
-  // in the moment before the client re-saves them sealed; it is the user's
-  // own password for their site, so it is forwarded as is.
+  let targetHost: string;
+  try {
+    targetHost = new URL(url).hostname.toLowerCase();
+  } catch {
+    return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+  }
+
+  // On a host the password was not sealed for (e.g. an unprotected site in a
+  // multi-site setup) the page is fetched without it.
   let bypass: string | undefined;
   if (sealedBypass) {
     try {
-      bypass = isSealed(sealedBypass) ? openSecret(sealedBypass) : sealedBypass;
+      const { secret, hosts } = openSecret(sealedBypass);
+      if (hosts.includes(targetHost)) bypass = secret;
     } catch (err) {
       if (err instanceof SecretSealError || err instanceof EncryptionUnavailableError) {
         return NextResponse.json({ status: 0, updated: null, error: err.message });

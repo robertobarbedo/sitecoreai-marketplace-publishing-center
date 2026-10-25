@@ -67,7 +67,7 @@ example a cache revalidation call).
   - `GET /api/fetch-custom-status` — fetches a custom status check URL.
   - `GET /api/proxy-action` — calls a custom action URL.
   - `POST /api/secrets/seal` — encrypts the Vercel protection bypass
-    password before the browser saves it.
+    password, bound to its allowed hostnames, before the browser saves it.
 
 Status rules:
 
@@ -168,7 +168,7 @@ creates on first save:
 | Item | Settings tab | Contents |
 | --- | --- | --- |
 | `DisplaySettings` | Display | Which sections and buttons are shown. |
-| `GeneralSettings` | General | Timestamp meta element name and the Vercel protection bypass password. |
+| `GeneralSettings` | General | Timestamp meta element name, the Vercel protection bypass password and its hostnames. |
 | `PublishingOptions` | General | Defaults for the Publish and Force Publish buttons. |
 | `AdditionalStatusCheck` | Add Checks | Custom status checks (name, URL). |
 | `CustomActions` | Add Actions | Custom actions (name, URL). |
@@ -198,8 +198,12 @@ deployment with
 with its login wall instead of the page, so the card can't find the timestamp.
 Create a Protection Bypass for Automation secret in the Vercel project and
 enter it here. The app's server then sends it as the
-`x-vercel-protection-bypass` header when it fetches the page. Leave it empty
-if the site is not protected. The field is write-only: once saved, the
+`x-vercel-protection-bypass` header when it fetches the page. Also enter the
+**Protected Hostnames** the password is for (for example
+`www.example.com, example.vercel.app`): the password is encrypted together
+with them and is only ever sent to a page on one of those hosts; pages on
+other hosts are checked without it. Changing the hostnames requires entering
+the password again. Leave both empty if the site is not protected. The field is write-only: once saved, the
 password is never shown again; type a new one to replace it, or use
 **Remove**.
 

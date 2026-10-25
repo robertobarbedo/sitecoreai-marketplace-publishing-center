@@ -35,13 +35,18 @@ export interface GeneralSettings {
   timestampMetaName: string;
   /**
    * Vercel Deployment Protection bypass password, sealed by the server
-   * (src/lib/secret-crypto.ts). When set, the Website status check sends it
-   * to /api/fetch-page, which opens it and forwards it as the
-   * x-vercel-protection-bypass header (to the page's own origin only) so
-   * protected deployments answer with the page instead of the auth wall.
-   * Never put in a URL, where it would be logged.
+   * together with vercelProtectionHosts (src/lib/secret-crypto.ts). When set,
+   * the Website status check sends it to /api/fetch-page, which opens it and
+   * forwards it as the x-vercel-protection-bypass header — only when the page
+   * is on one of the sealed hosts — so protected deployments answer with the
+   * page instead of the auth wall. Never put in a URL, where it would be logged.
    */
   vercelProtectionBypass: string;
+  /**
+   * Hostnames the password is sealed for, kept here for display only; the
+   * copy inside the sealed value is what the server enforces.
+   */
+  vercelProtectionHosts: string[];
 }
 
 export interface DisplaySettings {
@@ -101,6 +106,7 @@ export interface PublishingOptionsSettings {
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   timestampMetaName: "Last-Modified",
   vercelProtectionBypass: "",
+  vercelProtectionHosts: [],
 };
 
 const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
@@ -258,17 +264,7 @@ export async function loadGeneralSettings(
       (await readValueField(client, sitecoreContextId, LEGACY_GENERAL_SETTINGS_PATH, language));
 
     if (!parsed) return DEFAULT_GENERAL_SETTINGS;
-    const settings = { ...DEFAULT_GENERAL_SETTINGS, ...(parsed as Partial<GeneralSettings>) };
-
-    // Earlier versions stored the protection password in plaintext; re-save
-    // it sealed in the background (needs sign-in, so it must not block the load).
-    const bypass = settings.vercelProtectionBypass?.trim();
-    if (bypass && !isSealedSecret(bypass)) {
-      void saveGeneralSettings(client, sitecoreContextId, settings, language).catch((error) =>
-        console.warn("Could not encrypt the stored protection password:", error)
-      );
-    }
-    return settings;
+    return { ...DEFAULT_GENERAL_SETTINGS, ...(parsed as Partial<GeneralSettings>) };
   } catch (error) {
     console.error("Error loading general settings:", error);
     return DEFAULT_GENERAL_SETTINGS;
@@ -316,11 +312,16 @@ export async function saveGeneralSettings(
   language: Language
 ): Promise<void> {
   try {
-    // The protection password is only ever stored sealed by the server
-    const sealedSettings: GeneralSettings = {
-      ...generalSettings,
-      vercelProtectionBypass: await sealProtectionBypass(generalSettings.vercelProtectionBypass.trim()),
-    };
+    // The protection password is only ever stored sealed by the server,
+    // together with the hosts it may be sent to
+    const bypass = generalSettings.vercelProtectionBypass.trim();
+    let sealedSettings: GeneralSettings = { ...generalSettings, vercelProtectionBypass: bypass };
+    if (!bypass) {
+      sealedSettings = { ...sealedSettings, vercelProtectionHosts: [] };
+    } else if (!isSealedSecret(bypass)) {
+      const { sealed, hosts } = await sealProtectionBypass(bypass, generalSettings.vercelProtectionHosts);
+      sealedSettings = { ...sealedSettings, vercelProtectionBypass: sealed, vercelProtectionHosts: hosts };
+    }
     const publishingCenterItem = await ensurePublishingCenterFolder(client, sitecoreContextId, language);
     await saveValueItem(
       client,

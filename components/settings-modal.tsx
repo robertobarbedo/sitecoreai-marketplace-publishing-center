@@ -46,6 +46,7 @@ import {
   type PublishTargets,
 } from "@/src/utils/sitecore-settings";
 import { Separator } from "@/components/ui/separator";
+import { parseHostList } from "@/src/utils/protection-secret";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -74,6 +75,9 @@ export function SettingsModal({
   // The stored (sealed) password is never shown; typing replaces it
   const [storedProtectionBypass, setStoredProtectionBypass] = useState("");
   const [vercelProtectionBypass, setVercelProtectionBypass] = useState("");
+  // Hosts the stored password is sealed for; changing them takes the password again
+  const [storedProtectionHosts, setStoredProtectionHosts] = useState<string[]>([]);
+  const [vercelProtectionHosts, setVercelProtectionHosts] = useState("");
 
   // Display Settings state
   const [showPublishingStatus, setShowPublishingStatus] = useState(true);
@@ -232,6 +236,8 @@ export function SettingsModal({
           setTimestampMetaName(generalSettings.timestampMetaName || "Last-Modified");
           setStoredProtectionBypass(generalSettings.vercelProtectionBypass || "");
           setVercelProtectionBypass("");
+          setStoredProtectionHosts(generalSettings.vercelProtectionHosts ?? []);
+          setVercelProtectionHosts((generalSettings.vercelProtectionHosts ?? []).join(", "));
 
           // Update display settings state
           setShowPublishingStatus(displaySettings.showPublishingStatus);
@@ -280,9 +286,23 @@ export function SettingsModal({
         throw new Error("No context ID available");
       }
 
+      const newProtectionBypass = vercelProtectionBypass.trim();
+      const protectionHosts = parseHostList(vercelProtectionHosts);
+      if (newProtectionBypass && protectionHosts.length === 0) {
+        throw new Error("Enter the hostname(s) the Deployment Protection password is for.");
+      }
+      if (
+        !newProtectionBypass &&
+        storedProtectionBypass &&
+        protectionHosts.join(",") !== storedProtectionHosts.join(",")
+      ) {
+        throw new Error("Enter the Deployment Protection password again to change its hostnames.");
+      }
+
       const generalSettings: GeneralSettings = {
         timestampMetaName: timestampMetaName.trim() || "Last-Modified",
-        vercelProtectionBypass: vercelProtectionBypass.trim() || storedProtectionBypass,
+        vercelProtectionBypass: newProtectionBypass || storedProtectionBypass,
+        vercelProtectionHosts: newProtectionBypass ? protectionHosts : storedProtectionHosts,
       };
 
       const displaySettings: DisplaySettings = {
@@ -545,8 +565,9 @@ export function SettingsModal({
                     <p className="text-xs text-gray-600">
                       Bypass password for Vercel's Deployment Protection. When set, the Website
                       status check sends it in the x-vercel-protection-bypass header so
-                      protected deployments can be checked. It is stored encrypted and is
-                      never shown again. Leave empty if the site is not protected.
+                      protected deployments can be checked, but only to the hostnames below.
+                      It is stored encrypted and is never shown again. Leave empty if the site
+                      is not protected.
                     </p>
                     <div className="flex items-center gap-2">
                       <Input
@@ -570,12 +591,36 @@ export function SettingsModal({
                           onClick={() => {
                             setStoredProtectionBypass("");
                             setVercelProtectionBypass("");
+                            setStoredProtectionHosts([]);
+                            setVercelProtectionHosts("");
                           }}
                         >
                           Remove
                         </Button>
                       )}
                     </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="vercelProtectionHosts"
+                      className="text-sm font-medium leading-none"
+                    >
+                      Protected Hostnames
+                    </label>
+                    <p className="text-xs text-gray-600">
+                      The site hostnames the password may be sent to, separated by commas
+                      (e.g. www.example.com, example.vercel.app). Pages on other hosts are
+                      checked without it. Changing them requires entering the password again.
+                    </p>
+                    <Input
+                      id="vercelProtectionHosts"
+                      type="text"
+                      placeholder="www.example.com"
+                      value={vercelProtectionHosts}
+                      onChange={(e) => setVercelProtectionHosts(e.target.value)}
+                      className="text-sm"
+                    />
                   </div>
 
                   <Separator />

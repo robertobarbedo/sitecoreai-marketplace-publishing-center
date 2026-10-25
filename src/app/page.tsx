@@ -43,6 +43,7 @@ function PagesContextPanel() {
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
     timestampMetaName: "Last-Modified",
     vercelProtectionBypass: "",
+    vercelProtectionHosts: [],
   });
   const [isLoadingCustomActions, setIsLoadingCustomActions] = useState(false);
   const [publishingOptions, setPublishingOptions] = useState<PublishingOptionsSettings>(
