@@ -141,12 +141,12 @@ at it.
 | `NEXT_PUBLIC_AUTH0_CLIENT_ID` | Yes | Client ID of the app's Single-page app client credentials. Without it every API route returns 500 and the Website, custom check and custom action calls fail. |
 | `NEXT_PUBLIC_SITECORE_APP_ID` | Yes | Marketplace app ID, sent at sign-in as `product_codes=mkp_<id>`. |
 | `PUBLISHING_CENTER_SECRET_ENCRYPTION_KEY` | To use a Vercel protection password | Server-only. Passphrase of at least 16 characters (for example `openssl rand -base64 32`) used to encrypt the Vercel protection bypass password. Without it the password can't be saved. Keep it stable: changing it means the password must be entered again. |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No | GA4 measurement ID. Leave empty to disable analytics. |
 | `NEXT_PUBLIC_SITE_LIVE_URL` | No | Fallback origin (for example `https://www.example.com`) prepended to relative custom action URLs when the page's live URL can't be read from Experience Edge. |
 | `NEXT_PUBLIC_AUTH0_DOMAIN` | No | Defaults to `auth.sitecorecloud.io`. |
 | `NEXT_PUBLIC_AUTH0_AUDIENCE` | No | Defaults to `https://api-webapp.sitecorecloud.io`. |
 | `NEXT_PUBLIC_AUTH0_SCOPE` | No | Defaults to `openid profile email offline_access`. |
 | `AUTH0_ISSUER` | No | Server-only. Defaults to `https://auth.sitecorecloud.io/`. |
+| `CSP_FRAME_ANCESTORS` | No | Space-separated CSP sources allowed to embed the app in a frame. Defaults to `'self' https://*.sitecorecloud.io`. |
 
 See [`.env.example`](.env.example) for a template. Site paths, languages and the website URL are not
 configured through environment variables: the app takes them from the page
@@ -227,7 +227,8 @@ value.
   Marketplace SDK with the signed-in SitecoreAI user's own permissions. The
   app's server never receives Sitecore credentials or tokens.
 - **API routes require sign-in.** `/api/fetch-page`,
-  `/api/fetch-custom-status` and `/api/proxy-action` require a Sitecore Cloud
+  `/api/fetch-custom-status`, `/api/proxy-action` and `/api/secrets/seal`
+  require a Sitecore Cloud
   (Auth0) access token. The server verifies its signature, issuer, audience
   and expiry, and that it was issued to this app's client ID; other requests
   get 401 or 403. Sign-in does not block the panel: only these calls wait for
@@ -255,12 +256,23 @@ value.
   seconds for custom actions).
 - **Data that leaves Sitecore.** The page's live URL, and the custom check
   and action URLs you configure (with the page path, ID and language filled
-  in), are sent to the app's server, which requests them. The Website check
-  returns only the HTTP status and the timestamp value to the browser. No
-  content is sent to any other third party.
-- **Analytics.** If `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set, Google Analytics
-  receives page views and a `marketplace_client_ready` event tagged
-  `app_name=publishing-center`. No content data is sent.
+  in), are sent to the app's server in the request's query string, which
+  requests them. The Website check returns only the HTTP status and the
+  timestamp value to the browser. No content is sent to any other third
+  party, and the app has no analytics or tracking.
+- **Security headers.** Every response sets HSTS, a
+  `Content-Security-Policy: frame-ancestors` that only lets SitecoreAI embed
+  the app (see `CSP_FRAME_ANCESTORS`), `X-Content-Type-Options`,
+  `Referrer-Policy` and `Permissions-Policy`; API responses are sent with
+  `Cache-Control: no-store`.
+- **Audit log.** Sign-in decisions and sensitive operations (page fetches,
+  custom checks, custom actions, password encryption) are written as JSON
+  audit lines with UTC timestamps to the server log: who, which target host
+  and the outcome. They contain no tokens, secrets, URL paths or content.
+- **Policies.** [Privacy policy](PRIVACY.md),
+  [Terms of service](TERMS.md),
+  [Data usage disclosure](DATA-USAGE.md) and
+  [Security policy](SECURITY.md).
 
 ## Limitations
 
@@ -313,7 +325,11 @@ value.
 
 ## Support
 
-Report bugs and request features by opening an issue in this repository.
+Report bugs and request features in
+[GitHub Issues](https://github.com/robertobarbedo/sitecoreai-marketplace-publishing-center/issues).
+Report security vulnerabilities privately as described in the
+[Security policy](SECURITY.md). See also the [Privacy policy](PRIVACY.md),
+[Terms of service](TERMS.md) and [Data usage disclosure](DATA-USAGE.md).
 This is a community app and is not an official Sitecore product.
 
 ## License

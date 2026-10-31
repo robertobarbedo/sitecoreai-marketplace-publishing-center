@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSitecoreUser } from "../../../lib/marketplace-auth/server";
-import { fetchPublicUrl, readCapped } from "../../../utils/publicFetch";
+import { auditLog } from "../../../lib/marketplace-auth/audit-log";
+import { fetchPublicUrl, hostOf, readCapped } from "../../../utils/publicFetch";
 import { describeRequestError } from "../../../utils/ssrfGuard";
 
 export async function GET(request: NextRequest) {
@@ -15,6 +16,13 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  // Target host only: the path and query may carry page data
+  const audit = {
+    sub: auth.user.sub,
+    org: auth.user.organizationId,
+    targetHost: hostOf(targetUrl),
+  };
 
   try {
     const { response, done } = await fetchPublicUrl(targetUrl, {
@@ -39,6 +47,13 @@ export async function GET(request: NextRequest) {
       done();
     }
 
+    auditLog(request, {
+      event: "proxy.action",
+      outcome: "allow",
+      upstreamStatus: response.status,
+      ...audit,
+    });
+
     return NextResponse.json(
       {
         status: response.status,
@@ -49,6 +64,12 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     const errorMessage = describeRequestError(err);
+    auditLog(request, {
+      event: "proxy.action",
+      outcome: "error",
+      reason: errorMessage,
+      ...audit,
+    });
     return NextResponse.json(
       {
         status: 0,

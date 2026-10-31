@@ -40,3 +40,12 @@ export async function fetchPublicUrl(
 export async function readCapped(response: Response): Promise<string> {
   return response.text();
 }
+
+/** Hostname of a URL for audit logs (never the path or query), or undefined. */
+export function hostOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSitecoreUser } from "../../../lib/marketplace-auth/server";
+import { auditLog } from "../../../lib/marketplace-auth/audit-log";
 import { fetchPublicUrl, readCapped } from "../../../utils/publicFetch";
 import { describeRequestError } from "../../../utils/ssrfGuard";
 import { EncryptionUnavailableError, SecretSealError, openSecret } from "../../../lib/secret-crypto";
@@ -51,6 +52,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid url" }, { status: 400 });
   }
 
+  // Target host only: no URL path or query, and never the password itself
+  const audit = {
+    sub: auth.user.sub,
+    org: auth.user.organizationId,
+    targetHost,
+  };
+
   // On a host the password was not sealed for (e.g. an unprotected site in a
   // multi-site setup) the page is fetched without it.
   let bypass: string | undefined;
@@ -60,6 +68,12 @@ export async function GET(request: NextRequest) {
       if (hosts.includes(targetHost)) bypass = secret;
     } catch (err) {
       if (err instanceof SecretSealError || err instanceof EncryptionUnavailableError) {
+        auditLog(request, {
+          event: "page.fetch",
+          outcome: "error",
+          reason: "Bypass password could not be opened",
+          ...audit,
+        });
         return NextResponse.json({ status: 0, updated: null, error: err.message });
       }
       throw err;
@@ -86,12 +100,28 @@ export async function GET(request: NextRequest) {
       done();
     }
 
+    auditLog(request, {
+      event: "page.fetch",
+      outcome: "allow",
+      upstreamStatus: status,
+      bypassSent: Boolean(bypass),
+      ...audit,
+    });
+
     return NextResponse.json({ status, updated });
   } catch (err) {
+    const error = describeRequestError(err);
+    auditLog(request, {
+      event: "page.fetch",
+      outcome: "error",
+      reason: error,
+      bypassSent: Boolean(bypass),
+      ...audit,
+    });
     return NextResponse.json({
       status: 0,
       updated: null,
-      error: describeRequestError(err),
+      error,
     });
   }
 }

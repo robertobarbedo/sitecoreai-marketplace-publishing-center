@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSitecoreUser } from "../../../../lib/marketplace-auth/server";
+import { auditLog } from "../../../../lib/marketplace-auth/audit-log";
 import { EncryptionUnavailableError, SecretSealError, normalizeHosts, sealSecret } from "../../../../lib/secret-crypto";
 
 const MAX_SECRET_LENGTH = 1000;
@@ -32,24 +33,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid hosts" }, { status: 400 });
   }
 
+  // Never the password: who sealed it and the hosts it is bound to
+  const audit = { event: "secret.seal", sub: auth.user.sub, org: auth.user.organizationId };
+
   try {
     const normalizedHosts = normalizeHosts(hosts);
-    return NextResponse.json({
-      sealed: sealSecret({ secret: secret.trim(), hosts: normalizedHosts }),
-      hosts: normalizedHosts,
-    });
+    const sealed = sealSecret({ secret: secret.trim(), hosts: normalizedHosts });
+    auditLog(req, { ...audit, outcome: "allow", hosts: normalizedHosts });
+    return NextResponse.json({ sealed, hosts: normalizedHosts });
   } catch (error) {
     if (error instanceof SecretSealError) {
+      auditLog(req, { ...audit, outcome: "deny", status: 400, reason: error.message });
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     if (error instanceof EncryptionUnavailableError) {
       console.error("Secret encryption unavailable:", error.message);
+      auditLog(req, { ...audit, outcome: "error", status: 500, reason: "Encryption unavailable" });
       return NextResponse.json(
         { error: "Password encryption is not configured on the server", detail: error.message },
         { status: 500 }
       );
     }
     console.error("Seal route error:", error);
+    auditLog(req, { ...audit, outcome: "error", status: 500, reason: "Internal server error" });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
