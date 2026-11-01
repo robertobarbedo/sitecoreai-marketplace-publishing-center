@@ -115,7 +115,7 @@ element (named `Last-Modified` unless you change it in settings) whose
 4. Under API access, enable **SitecoreAI APIs**.
 5. Set the deployment URL to `https://<your-deployment>/`.
 6. Upload the app logo from
-   [`publishing-center-icon.svg`](publishing-center-icon.svg).
+   [`cloud-arrow-up-duotone.svg`](cloud-arrow-up-duotone.svg).
 7. Set up custom authorization: create client credentials of type
    **Single-page app**, and register your deployment origin
    (`https://<your-deployment>`) as callback URL (with a trailing `/`), logout

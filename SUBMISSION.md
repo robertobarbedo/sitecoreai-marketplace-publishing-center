@@ -89,7 +89,7 @@ Off. The app does not use AI or machine learning.
   - `NEXT_PUBLIC_SITECORE_APP_ID` (required)
   - `PUBLISHING_CENTER_SECRET_ENCRYPTION_KEY` (required to save a Vercel protection password; server-only, 16+ characters, keep stable)
   - Optional: `NEXT_PUBLIC_SITE_LIVE_URL`, `NEXT_PUBLIC_AUTH0_DOMAIN`, `NEXT_PUBLIC_AUTH0_AUDIENCE`, `NEXT_PUBLIC_AUTH0_SCOPE`, `AUTH0_ISSUER`, `CSP_FRAME_ANCESTORS`
-- App logo: `publishing-center-icon.svg`
+- App logo: `cloud-arrow-up-duotone.svg`
 
 ## 11. Submission details (visible only to Sitecore)
 
