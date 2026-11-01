@@ -1105,9 +1105,9 @@ export function SettingsModal({
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </div>
-          <div className="text-left">
-            <span className="text-xs text-gray-400">Developed by Roberto Barbedo</span>
-          </div>
+          <p className="text-left text-[10px] text-[#64748B]">
+            Developed by Roberto Barbedo
+          </p>
         </div>
       </DialogContent>
     </Dialog>
