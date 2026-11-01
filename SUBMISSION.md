@@ -1,7 +1,7 @@
 # Marketplace submission: Publishing Center
 
 Copy-paste text for Sitecore's public-app submission form, in form order.
-Replace every `{{...}}` placeholder before submitting.
+Replace `{{APP_URL}}` with the production deployment URL before submitting.
 
 ## 1. App name
 
@@ -67,7 +67,7 @@ PNG, shown as 600×900 thumbnails. Capture during live QA, with the panel open n
 
 ## 8. Data usage disclosure
 
-Paste from `DATA-USAGE.md` (replace `rb205@proton.me` in it first).
+Paste from `DATA-USAGE.md`.
 
 Summary: page data is read and written through the Marketplace SDK with the user's own permissions, and panel settings are stored as items under `/sitecore/system/Modules/Marketplace/PublishingCenter` in the customer's own environment; there is no database. The page's live URL and any configured custom check/action URLs are sent to the app's own signed-in API routes, which request them and return only the result (for the Website check, the HTTP status and timestamp). The optional Vercel bypass password is stored only as server-encrypted ciphertext, and server audit logs (no tokens, secrets, URL paths or content) are kept for 90 days.
 
@@ -117,4 +117,4 @@ Next.js lists sharp (LGPL-3.0 libvips) as an optional dependency for image optim
 - [ ] `NEXT_PUBLIC_AUTH0_CLIENT_ID`, `NEXT_PUBLIC_SITECORE_APP_ID` and `PUBLISHING_CENTER_SECRET_ENCRYPTION_KEY` set on the production host; app rebuilt
 - [ ] Production client credentials registered with `{{APP_URL}}` callback, logout, web origin and CORS URLs
 - [ ] Screenshots captured (PNG)
-- [ ] `rb205@proton.me` replaced in DATA-USAGE.md, PRIVACY.md, TERMS.md, SECURITY.md; `Roberto Barbedo`, `rb205@proton.me`, `{{APP_URL}}` replaced in this form
+- [ ] `{{APP_URL}}` replaced with the production deployment URL in this form
