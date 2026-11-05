@@ -130,7 +130,7 @@ No other third parties receive data from the app.
 Depending on where you live, you may have the right to access, correct,
 delete or export your personal data, or to object to its processing. The
 publisher keeps no personal data beyond the server logs described above. To
-make a request, email rb205@proton.me; we answer within 30 days.
+make a request, email roberto.barbedo@msqdx.com; we answer within 30 days.
 
 ## Deleting your data
 
@@ -141,7 +141,7 @@ make a request, email rb205@proton.me; we answer within 30 days.
 - **Browser data:** sign out, or clear the site data for the app in your
   browser.
 - **Server logs:** deleted automatically after 90 days, or earlier on
-  request to rb205@proton.me.
+  request to roberto.barbedo@msqdx.com.
 
 ## Changes to this policy
 
@@ -150,5 +150,5 @@ We may update this policy from time to time. Changes are reflected in the
 
 ## Contact
 
-Questions about this policy: email rb205@proton.me or open an issue at
+Questions about this policy: email roberto.barbedo@msqdx.com or open an issue at
 https://github.com/robertobarbedo/sitecoreai-marketplace-publishing-center/issues.
