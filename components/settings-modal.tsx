@@ -1105,8 +1105,8 @@ export function SettingsModal({
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </div>
-          <p className="text-left text-[10px] text-[#64748B]">
-            Developed by Roberto Barbedo
+          <p className="text-left text-[10px] text-[#94A3B8]">
+            Developed by Roberto Barbedo · v{process.env.NEXT_PUBLIC_APP_VERSION}
           </p>
         </div>
       </DialogContent>
